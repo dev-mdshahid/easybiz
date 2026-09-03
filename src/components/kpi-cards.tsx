@@ -14,17 +14,17 @@ export function KpiCards({ stats }: { stats: DashboardStats }) {
     {
       label: "Pathao cost",
       value: formatBdt(stats.pathao_cost),
-      hint: "Final fee after Pathao discounts",
+      hint: "Final fee on deliveries",
+    },
+    {
+      label: "Return cost",
+      value: formatBdt(stats.return_cost),
+      hint: "Absolute value of negative Pathao payouts",
     },
     {
       label: "Net payout",
       value: formatBdt(stats.profit),
       hint: "What Pathao paid you",
-    },
-    {
-      label: "Liabilities",
-      value: formatBdt(stats.liabilities),
-      hint: `Uncollected ${formatBdt(stats.uncollected)} · Owed to Pathao ${formatBdt(stats.owed_to_pathao)}`,
     },
   ];
 

@@ -22,10 +22,8 @@ export type DashboardStats = {
   return_count: number;
   revenue: number;
   pathao_cost: number;
+  return_cost: number;
   profit: number;
-  uncollected: number;
-  owed_to_pathao: number;
-  liabilities: number;
   average_collected: number;
 };
 
@@ -35,10 +33,8 @@ function emptyStats(): DashboardStats {
     return_count: 0,
     revenue: 0,
     pathao_cost: 0,
+    return_cost: 0,
     profit: 0,
-    uncollected: 0,
-    owed_to_pathao: 0,
-    liabilities: 0,
     average_collected: 0,
   };
 }
@@ -51,10 +47,8 @@ function asStats(value: unknown): DashboardStats {
     return_count: toNumber(row.return_count),
     revenue: toNumber(row.revenue),
     pathao_cost: toNumber(row.pathao_cost),
+    return_cost: toNumber(row.return_cost),
     profit: toNumber(row.profit),
-    uncollected: toNumber(row.uncollected),
-    owed_to_pathao: toNumber(row.owed_to_pathao),
-    liabilities: toNumber(row.liabilities),
     average_collected: toNumber(row.average_collected),
   };
 }
