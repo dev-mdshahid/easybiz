@@ -43,7 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <header className="flex h-14 items-center gap-2 border-b px-4">
                 <SidebarTrigger />
                 <span className="text-sm text-muted-foreground">
-                  {current ? `${current.name} books` : "EasyBiz"}
+                  {current ? current.name : "EasyBiz"}
                 </span>
               </header>
               <div className="flex-1 p-4 md:p-6">{children}</div>

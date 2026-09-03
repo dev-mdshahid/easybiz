@@ -178,7 +178,7 @@ export function BusinessSwitcher({
               <DialogHeader>
                 <DialogTitle>New business</DialogTitle>
                 <DialogDescription>
-                  Books, uploads, and Pathao CSVs stay inside this business.
+                  Orders, uploads, and Pathao CSVs stay inside this business.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-1.5">

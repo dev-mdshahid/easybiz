@@ -115,7 +115,7 @@ export function CsvUploader() {
               . Showing the first {preview.preview.length}.
             </p>
             <Button onClick={confirm} disabled={pending || !file}>
-              {pending ? "Working…" : "Save to books"}
+              {pending ? "Working…" : "Save invoices"}
             </Button>
           </div>
           <Table>
