@@ -108,7 +108,7 @@ export async function listInvoices(params: {
   const supabase = createAdminClient();
 
   let query = supabase
-    .from("pathao_invoices")
+    .from("pathao_invoices_current")
     .select("*", { count: "exact" })
     .eq("business_id", business.id)
     .order("created_at", { ascending: false })
@@ -131,7 +131,7 @@ export async function listInvoices(params: {
   if (error) throw new Error(error.message);
 
   return {
-    rows: data ?? [],
+    rows: (data ?? []) as PathaoInvoice[],
     total: count ?? 0,
     page,
     pageSize: PAGE_SIZE,
@@ -228,9 +228,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
       else insertedCount += 1;
     }
 
-    const { error } = await supabase.from("pathao_invoices").upsert(payload, {
-      onConflict: "business_id,consignment_id",
-    });
+    const { error } = await supabase.from("pathao_invoices").insert(payload);
 
     if (error) {
       await supabase
@@ -264,6 +262,68 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
     errorCount: parsed.errors.length,
     errors: parsed.errors,
   };
+}
+
+export type DeleteUploadResult =
+  | {
+      ok: true;
+      filename: string;
+      removedCount: number;
+      revertedCount: number;
+      keptCount: number;
+    }
+  | { ok: false; message: string };
+
+function asDeleteResult(value: unknown): DeleteUploadResult {
+  if (!value || typeof value !== "object") {
+    return { ok: false, message: "Could not delete that upload." };
+  }
+  const row = value as Record<string, unknown>;
+  if (row.ok === false) {
+    return {
+      ok: false,
+      message:
+        typeof row.message === "string"
+          ? row.message
+          : "That upload was already deleted.",
+    };
+  }
+  if (row.ok !== true || typeof row.filename !== "string") {
+    return { ok: false, message: "Could not delete that upload." };
+  }
+  return {
+    ok: true,
+    filename: row.filename,
+    removedCount: toNumber(row.removed_count),
+    revertedCount: toNumber(row.reverted_count),
+    keptCount: toNumber(row.kept_count),
+  };
+}
+
+export async function deleteCsvUpload(uploadId: number): Promise<DeleteUploadResult> {
+  if (!Number.isInteger(uploadId) || uploadId <= 0) {
+    return { ok: false, message: "That upload does not exist." };
+  }
+
+  const { current: business } = await getBusinessContext();
+  if (!business) {
+    return { ok: false, message: "Create a business before continuing." };
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("delete_csv_upload", {
+    p_upload_id: uploadId,
+    p_business_id: business.id,
+  });
+  if (error) return { ok: false, message: error.message };
+
+  const result = asDeleteResult(data);
+  if (!result.ok) return result;
+
+  revalidatePath("/");
+  revalidatePath("/orders");
+  revalidatePath("/upload");
+  return result;
 }
 
 export async function previewPathaoCsv(formData: FormData): Promise<

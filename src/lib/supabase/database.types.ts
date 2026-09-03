@@ -102,7 +102,7 @@ export type Database = {
           recipient_name: string;
           recipient_phone: string;
           store_name: string;
-          upload_id: number | null;
+          upload_id: number;
         };
         Insert: {
           additional_charge?: number;
@@ -125,7 +125,7 @@ export type Database = {
           recipient_name?: string;
           recipient_phone?: string;
           store_name?: string;
-          upload_id?: number | null;
+          upload_id: number;
         };
         Update: {
           additional_charge?: number;
@@ -148,7 +148,7 @@ export type Database = {
           recipient_name?: string;
           recipient_phone?: string;
           store_name?: string;
-          upload_id?: number | null;
+          upload_id?: number;
         };
         Relationships: [
           {
@@ -169,9 +169,53 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      pathao_invoices_current: {
+        Row: {
+          additional_charge: number | null;
+          business_id: number | null;
+          cod_fee: number | null;
+          collectable_amount: number | null;
+          collected_amount: number | null;
+          compensation_cost: number | null;
+          consignment_id: string | null;
+          created_at: string | null;
+          delivery_fee: number | null;
+          discount: number | null;
+          final_fee: number | null;
+          id: number | null;
+          imported_at: string | null;
+          invoice_type: string | null;
+          merchant_order_id: string | null;
+          payout: number | null;
+          promo_discount: number | null;
+          recipient_name: string | null;
+          recipient_phone: string | null;
+          store_name: string | null;
+          upload_id: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pathao_invoices_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pathao_invoices_upload_id_fkey";
+            columns: ["upload_id"];
+            isOneToOne: false;
+            referencedRelation: "csv_uploads";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
+      delete_csv_upload: {
+        Args: { p_business_id: number; p_upload_id: number };
+        Returns: Json;
+      };
       get_dashboard_stats: {
         Args: { p_business_id: number; p_from?: string; p_to?: string };
         Returns: Json;

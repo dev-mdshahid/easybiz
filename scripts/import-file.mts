@@ -85,13 +85,12 @@ for (const row of parsed.rows) {
   else insertedCount += 1;
 }
 
-const { error } = await supabase.from("pathao_invoices").upsert(
+const { error } = await supabase.from("pathao_invoices").insert(
   parsed.rows.map((row) => ({
     ...row,
     business_id: business.id,
     upload_id: upload.id,
   })),
-  { onConflict: "business_id,consignment_id" },
 );
 if (error) {
   console.error(error);

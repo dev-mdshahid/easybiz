@@ -1,7 +1,7 @@
 import { CsvUploader } from "@/components/csv-uploader";
+import { UploadHistory } from "@/components/upload-history";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listUploads } from "@/app/actions";
-import { formatDhaka } from "@/lib/time";
 
 export default async function UploadPage() {
   const uploads = await listUploads();
@@ -22,29 +22,7 @@ export default async function UploadPage() {
           <CardDescription>Newest first</CardDescription>
         </CardHeader>
         <CardContent>
-          {uploads.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing imported yet.</p>
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {uploads.map((upload) => (
-                <li
-                  key={upload.id}
-                  className="flex flex-wrap justify-between gap-2 border-b border-border py-2 last:border-0"
-                >
-                  <div>
-                    <p className="font-medium">{upload.filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {upload.status} · {upload.inserted_count} new ·{" "}
-                      {upload.updated_count} updated · {upload.error_count} skipped
-                    </p>
-                  </div>
-                  <span className="text-muted-foreground">
-                    {formatDhaka(upload.created_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <UploadHistory uploads={uploads} />
         </CardContent>
       </Card>
     </div>
