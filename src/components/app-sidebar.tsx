@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Receipt, Upload } from "lucide-react";
 
+import { BusinessSwitcher } from "@/components/business-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +17,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import type { Business } from "@/lib/supabase/database.types";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -23,16 +25,19 @@ const items = [
   { href: "/upload", label: "Upload CSV", icon: Upload },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({
+  businesses,
+  current,
+}: {
+  businesses: Business[];
+  current: Business | null;
+}) {
   const pathname = usePathname();
 
   return (
     <Sidebar>
       <SidebarHeader className="px-3 py-4">
-        <Link href="/" className="flex flex-col gap-0.5 px-1">
-          <span className="text-sm font-semibold tracking-tight">Shazelle</span>
-          <span className="text-xs text-muted-foreground">Pathao books</span>
-        </Link>
+        <BusinessSwitcher businesses={businesses} current={current} />
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent>

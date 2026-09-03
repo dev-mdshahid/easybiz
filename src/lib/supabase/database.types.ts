@@ -12,8 +12,27 @@ export type Database = {
   };
   public: {
     Tables: {
+      businesses: {
+        Row: {
+          created_at: string;
+          id: number;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: never;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: never;
+          name?: string;
+        };
+        Relationships: [];
+      };
       csv_uploads: {
         Row: {
+          business_id: number;
           created_at: string;
           error_count: number;
           error_message: string | null;
@@ -26,6 +45,7 @@ export type Database = {
           updated_count: number;
         };
         Insert: {
+          business_id: number;
           created_at?: string;
           error_count?: number;
           error_message?: string | null;
@@ -38,6 +58,7 @@ export type Database = {
           updated_count?: number;
         };
         Update: {
+          business_id?: number;
           created_at?: string;
           error_count?: number;
           error_message?: string | null;
@@ -49,11 +70,20 @@ export type Database = {
           status?: string;
           updated_count?: number;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "csv_uploads_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       pathao_invoices: {
         Row: {
           additional_charge: number;
+          business_id: number;
           cod_fee: number;
           collectable_amount: number;
           collected_amount: number;
@@ -76,6 +106,7 @@ export type Database = {
         };
         Insert: {
           additional_charge?: number;
+          business_id: number;
           cod_fee?: number;
           collectable_amount: number;
           collected_amount: number;
@@ -98,6 +129,7 @@ export type Database = {
         };
         Update: {
           additional_charge?: number;
+          business_id?: number;
           cod_fee?: number;
           collectable_amount?: number;
           collected_amount?: number;
@@ -120,6 +152,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "pathao_invoices_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "pathao_invoices_upload_id_fkey";
             columns: ["upload_id"];
             isOneToOne: false;
@@ -134,7 +173,7 @@ export type Database = {
     };
     Functions: {
       get_dashboard_stats: {
-        Args: { p_from?: string; p_to?: string };
+        Args: { p_business_id: number; p_from?: string; p_to?: string };
         Returns: Json;
       };
     };
@@ -149,3 +188,4 @@ export type Database = {
 
 export type PathaoInvoice = Database["public"]["Tables"]["pathao_invoices"]["Row"];
 export type CsvUpload = Database["public"]["Tables"]["csv_uploads"]["Row"];
+export type Business = Database["public"]["Tables"]["businesses"]["Row"];

@@ -2,6 +2,7 @@ import { DatePresets } from "@/components/date-presets";
 import { EmptyBooks, KpiCards } from "@/components/kpi-cards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardStats, listUploads } from "@/app/actions";
+import { getBusinessContext } from "@/app/business-actions";
 import { formatBdt } from "@/lib/money";
 import { formatDhaka, rangeFromPreset, type DatePreset } from "@/lib/time";
 
@@ -18,7 +19,8 @@ export default async function DashboardPage({
   const params = await searchParams;
   const preset = asPreset(params.preset);
   const range = rangeFromPreset(preset);
-  const [stats, uploads] = await Promise.all([
+  const [{ current }, stats, uploads] = await Promise.all([
+    getBusinessContext(),
     getDashboardStats(range.from, range.to),
     listUploads(),
   ]);
@@ -36,7 +38,7 @@ export default async function DashboardPage({
         <DatePresets preset={preset} />
       </div>
 
-      {empty ? <EmptyBooks /> : <KpiCards stats={stats} />}
+      {empty ? <EmptyBooks needsBusiness={!current} /> : <KpiCards stats={stats} />}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

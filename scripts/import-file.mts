@@ -23,6 +23,7 @@ loadEnvLocal();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const filePath = process.argv[2];
+const businessName = process.argv[3] ?? "Shazelle";
 
 if (!url || !key || !filePath) {
   console.error("Need env keys and a csv path");
@@ -40,10 +41,22 @@ const supabase = createClient<Database>(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const { data: business, error: businessError } = await supabase
+  .from("businesses")
+  .select("id")
+  .eq("name", businessName)
+  .maybeSingle();
+
+if (businessError || !business) {
+  console.error(businessError ?? `Business not found: ${businessName}`);
+  process.exit(1);
+}
+
 const sha256 = createHash("sha256").update(buffer).digest("hex");
 const { data: upload, error: uploadError } = await supabase
   .from("csv_uploads")
   .insert({
+    business_id: business.id,
     filename: basename(filePath),
     file_sha256: sha256,
     row_count: parsed.rows.length,
@@ -62,6 +75,7 @@ const ids = parsed.rows.map((r) => r.consignment_id);
 const { data: existingRows } = await supabase
   .from("pathao_invoices")
   .select("consignment_id")
+  .eq("business_id", business.id)
   .in("consignment_id", ids);
 const existing = new Set((existingRows ?? []).map((r) => r.consignment_id));
 let insertedCount = 0;
@@ -72,8 +86,12 @@ for (const row of parsed.rows) {
 }
 
 const { error } = await supabase.from("pathao_invoices").upsert(
-  parsed.rows.map((row) => ({ ...row, upload_id: upload.id })),
-  { onConflict: "consignment_id" },
+  parsed.rows.map((row) => ({
+    ...row,
+    business_id: business.id,
+    upload_id: upload.id,
+  })),
+  { onConflict: "business_id,consignment_id" },
 );
 if (error) {
   console.error(error);

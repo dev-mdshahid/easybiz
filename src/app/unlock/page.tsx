@@ -13,7 +13,7 @@ export default async function UnlockPage({
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col justify-center gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Shazelle Books</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">EasyBiz</h1>
         <p className="text-sm text-muted-foreground">Enter the shared access PIN.</p>
       </div>
       <form action={unlock} className="grid gap-3">

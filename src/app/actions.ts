@@ -10,6 +10,7 @@ import {
   type RowError,
 } from "@/lib/pathao-csv";
 import { toNumber } from "@/lib/money";
+import { getBusinessContext } from "@/app/business-actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CsvUpload, PathaoInvoice } from "@/lib/supabase/database.types";
 
@@ -59,8 +60,11 @@ function asStats(value: unknown): DashboardStats {
 }
 
 export async function getDashboardStats(from?: string | null, to?: string | null) {
+  const { current: business } = await getBusinessContext();
+  if (!business) return emptyStats();
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("get_dashboard_stats", {
+    p_business_id: business.id,
     p_from: from || undefined,
     p_to: to || undefined,
   });
@@ -69,10 +73,13 @@ export async function getDashboardStats(from?: string | null, to?: string | null
 }
 
 export async function listUploads(): Promise<CsvUpload[]> {
+  const { current: business } = await getBusinessContext();
+  if (!business) return [];
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("csv_uploads")
     .select("*")
+    .eq("business_id", business.id)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw new Error(error.message);
@@ -100,11 +107,16 @@ export async function listInvoices(params: {
   const page = Math.max(1, params.page ?? 1);
   const fromIdx = (page - 1) * PAGE_SIZE;
   const toIdx = fromIdx + PAGE_SIZE - 1;
+  const { current: business } = await getBusinessContext();
+  if (!business) {
+    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+  }
   const supabase = createAdminClient();
 
   let query = supabase
     .from("pathao_invoices")
     .select("*", { count: "exact" })
+    .eq("business_id", business.id)
     .order("created_at", { ascending: false })
     .range(fromIdx, toIdx);
 
@@ -159,11 +171,16 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
   if (!parsed.ok) return parsed;
 
   const sha256 = createHash("sha256").update(buffer).digest("hex");
+  const { current: business } = await getBusinessContext();
+  if (!business) {
+    return { ok: false, message: "Create a business before uploading." };
+  }
   const supabase = createAdminClient();
 
   const { data: upload, error: uploadError } = await supabase
     .from("csv_uploads")
     .insert({
+      business_id: business.id,
       filename: file.name,
       file_sha256: sha256,
       row_count: parsed.rows.length + parsed.errors.length,
@@ -188,6 +205,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
     const { data, error } = await supabase
       .from("pathao_invoices")
       .select("consignment_id")
+      .eq("business_id", business.id)
       .in("consignment_id", batch);
     if (error) {
       await supabase
@@ -206,6 +224,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
     const slice = parsed.rows.slice(i, i + UPSERT_BATCH);
     const payload = slice.map((row) => ({
       ...row,
+      business_id: business.id,
       upload_id: upload.id,
       imported_at: new Date().toISOString(),
     }));
@@ -216,7 +235,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
     }
 
     const { error } = await supabase.from("pathao_invoices").upsert(payload, {
-      onConflict: "consignment_id",
+      onConflict: "business_id,consignment_id",
     });
 
     if (error) {

@@ -47,23 +47,29 @@ export function KpiCards({ stats }: { stats: DashboardStats }) {
   );
 }
 
-export function EmptyBooks() {
+export function EmptyBooks({ needsBusiness = false }: { needsBusiness?: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>No invoices yet</CardTitle>
+        <CardTitle>
+          {needsBusiness ? "Create a business" : "No invoices yet"}
+        </CardTitle>
         <CardDescription>
-          Upload a Pathao paid-invoice CSV to see revenue, fees, and payout.
+          {needsBusiness
+            ? "Create a business from the sidebar, then upload a Pathao paid-invoice CSV."
+            : "Upload a Pathao paid-invoice CSV for this business to see revenue, fees, and payout."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Link
-          href="/upload"
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-        >
-          Go to Upload
-        </Link>
-      </CardContent>
+      {!needsBusiness ? (
+        <CardContent>
+          <Link
+            href="/upload"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Go to Upload
+          </Link>
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
