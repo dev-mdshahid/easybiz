@@ -19,7 +19,7 @@ export function KpiCards({ stats }: { stats: DashboardStats }) {
     {
       label: "Return cost",
       value: formatBdt(stats.return_cost),
-      hint: "Absolute value of negative Pathao payouts",
+      hint: "Final fee on returned consignments",
     },
     {
       label: "Net payout",
