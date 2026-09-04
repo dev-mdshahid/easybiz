@@ -80,6 +80,56 @@ export async function addExpense(
   return { ok: true };
 }
 
+export async function updateExpense(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { current } = await getBusinessContext();
+  if (!current) {
+    return { ok: false, message: "Create a business before continuing." };
+  }
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: "That expense does not exist." };
+  }
+
+  const parsed = parseExpense(
+    String(formData.get("amount") ?? ""),
+    String(formData.get("occurred_on") ?? ""),
+    String(formData.get("category") ?? ""),
+    String(formData.get("note") ?? ""),
+  );
+  if (!parsed.ok) return parsed;
+
+  const supabase = createAdminClient();
+  const { data: existing, error: lookupError } = await supabase
+    .from("expenses")
+    .select("id")
+    .eq("id", id)
+    .eq("business_id", current.id)
+    .maybeSingle();
+
+  if (lookupError) return { ok: false, message: lookupError.message };
+  if (!existing) {
+    return { ok: false, message: "That expense does not exist." };
+  }
+
+  const { error } = await supabase
+    .from("expenses")
+    .update({
+      amount: parsed.amount,
+      occurred_on: parsed.occurredOn,
+      category: parsed.category,
+      note: parsed.note,
+    })
+    .eq("id", id)
+    .eq("business_id", current.id);
+
+  if (error) return { ok: false, message: error.message };
+  revalidateExpenses();
+  return { ok: true };
+}
+
 export async function deleteExpense(
   id: number,
 ): Promise<{ ok: true } | { ok: false; message: string }> {

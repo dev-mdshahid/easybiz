@@ -1,4 +1,7 @@
-import { DeleteExpenseButton } from "@/components/expense-form";
+import {
+  DeleteExpenseButton,
+  EditExpenseButton,
+} from "@/components/expense-form";
 import {
   Table,
   TableBody,
@@ -57,10 +60,13 @@ export function ExpensesTable({ rows }: { rows: Expense[] }) {
               {formatBdt(toNum(row.amount))}
             </TableCell>
             <TableCell className="text-right">
-              <DeleteExpenseButton
-                id={row.id}
-                label={`${categoryLabel(row.category)} on ${row.occurred_on}`}
-              />
+              <div className="flex justify-end gap-1">
+                <EditExpenseButton row={row} />
+                <DeleteExpenseButton
+                  id={row.id}
+                  label={`${categoryLabel(row.category)} on ${row.occurred_on}`}
+                />
+              </div>
             </TableCell>
           </TableRow>
         ))}
