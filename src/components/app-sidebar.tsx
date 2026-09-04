@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ClipboardList,
   LayoutDashboard,
   Package,
   Receipt,
@@ -28,6 +29,7 @@ import type { Business } from "@/lib/supabase/database.types";
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/orders", label: "Orders", icon: Receipt },
+  { href: "/expected-orders", label: "Expected orders", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/expenses", label: "Expenses", icon: Wallet },
   { href: "/upload", label: "Upload CSV", icon: Upload },
@@ -57,7 +59,8 @@ export function AppSidebar({
                 const active =
                   item.href === "/"
                     ? pathname === "/"
-                    : pathname.startsWith(item.href);
+                    : pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton

@@ -293,6 +293,194 @@ export type Database = {
           },
         ];
       };
+      business_settings: {
+        Row: {
+          ai_api_key: string;
+          ai_base_url: string | null;
+          ai_model: string;
+          ai_provider: string;
+          business_id: number;
+          default_item_type: string;
+          default_item_weight: number;
+          default_store_name: string;
+          updated_at: string;
+        };
+        Insert: {
+          ai_api_key?: string;
+          ai_base_url?: string | null;
+          ai_model?: string;
+          ai_provider?: string;
+          business_id: number;
+          default_item_type?: string;
+          default_item_weight?: number;
+          default_store_name?: string;
+          updated_at?: string;
+        };
+        Update: {
+          ai_api_key?: string;
+          ai_base_url?: string | null;
+          ai_model?: string;
+          ai_provider?: string;
+          business_id?: number;
+          default_item_type?: string;
+          default_item_weight?: number;
+          default_store_name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_settings_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: true;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      expected_order_intakes: {
+        Row: {
+          business_id: number;
+          created_at: string;
+          error_message: string | null;
+          id: number;
+          image_count: number;
+          model: string | null;
+          note: string | null;
+          raw_ai_response: Json | null;
+        };
+        Insert: {
+          business_id: number;
+          created_at?: string;
+          error_message?: string | null;
+          id?: never;
+          image_count?: number;
+          model?: string | null;
+          note?: string | null;
+          raw_ai_response?: Json | null;
+        };
+        Update: {
+          business_id?: number;
+          created_at?: string;
+          error_message?: string | null;
+          id?: never;
+          image_count?: number;
+          model?: string | null;
+          note?: string | null;
+          raw_ai_response?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expected_order_intakes_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      expected_orders: {
+        Row: {
+          amount_to_collect: number;
+          business_id: number;
+          created_at: string;
+          exported_at: string | null;
+          extraction: Json | null;
+          id: number;
+          intake_id: number | null;
+          item_desc: string;
+          item_quantity: number;
+          item_type: string;
+          item_weight: number;
+          merchant_order_id: string;
+          product_id: number | null;
+          recipient_address: string;
+          recipient_area: string;
+          recipient_city: string;
+          recipient_name: string;
+          recipient_phone: string;
+          recipient_zone: string;
+          special_instruction: string;
+          status: string;
+          store_name: string;
+          updated_at: string;
+          warnings: Json;
+        };
+        Insert: {
+          amount_to_collect?: number;
+          business_id: number;
+          created_at?: string;
+          exported_at?: string | null;
+          extraction?: Json | null;
+          id?: never;
+          intake_id?: number | null;
+          item_desc?: string;
+          item_quantity?: number;
+          item_type?: string;
+          item_weight?: number;
+          merchant_order_id?: string;
+          product_id?: number | null;
+          recipient_address?: string;
+          recipient_area?: string;
+          recipient_city?: string;
+          recipient_name?: string;
+          recipient_phone?: string;
+          recipient_zone?: string;
+          special_instruction?: string;
+          status?: string;
+          store_name?: string;
+          updated_at?: string;
+          warnings?: Json;
+        };
+        Update: {
+          amount_to_collect?: number;
+          business_id?: number;
+          created_at?: string;
+          exported_at?: string | null;
+          extraction?: Json | null;
+          id?: never;
+          intake_id?: number | null;
+          item_desc?: string;
+          item_quantity?: number;
+          item_type?: string;
+          item_weight?: number;
+          merchant_order_id?: string;
+          product_id?: number | null;
+          recipient_address?: string;
+          recipient_area?: string;
+          recipient_city?: string;
+          recipient_name?: string;
+          recipient_phone?: string;
+          recipient_zone?: string;
+          special_instruction?: string;
+          status?: string;
+          store_name?: string;
+          updated_at?: string;
+          warnings?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expected_orders_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expected_orders_intake_id_fkey";
+            columns: ["intake_id"];
+            isOneToOne: false;
+            referencedRelation: "expected_order_intakes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expected_orders_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_cost_lines: {
         Row: {
           id: number;
@@ -414,3 +602,9 @@ export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductCostLine =
   Database["public"]["Tables"]["product_cost_lines"]["Row"];
+export type BusinessSettings =
+  Database["public"]["Tables"]["business_settings"]["Row"];
+export type ExpectedOrderIntake =
+  Database["public"]["Tables"]["expected_order_intakes"]["Row"];
+export type ExpectedOrder =
+  Database["public"]["Tables"]["expected_orders"]["Row"];

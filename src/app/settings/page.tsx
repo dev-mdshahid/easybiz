@@ -1,5 +1,7 @@
 import { getBusinessContext } from "@/app/business-actions";
+import { getOrderCreationSettings } from "@/app/expected-order-actions";
 import { listProductsWithLines } from "@/app/settings-actions";
+import { OrderCreationSettings } from "@/components/order-creation-settings";
 import { SettingsClient } from "@/components/settings-client";
 
 export default async function SettingsPage({
@@ -8,9 +10,10 @@ export default async function SettingsPage({
   searchParams: Promise<{ product?: string }>;
 }) {
   const params = await searchParams;
-  const [{ current }, products] = await Promise.all([
+  const [{ current }, products, orderSettings] = await Promise.all([
     getBusinessContext(),
     listProductsWithLines(),
+    getOrderCreationSettings(),
   ]);
   const requested = Number(params.product);
   const selected =
@@ -28,6 +31,7 @@ export default async function SettingsPage({
             : "Create a business from the sidebar before editing item costs."}
         </p>
       </div>
+      {current ? <OrderCreationSettings settings={orderSettings} /> : null}
       <SettingsClient products={products} selectedId={selected?.id ?? null} />
     </div>
   );

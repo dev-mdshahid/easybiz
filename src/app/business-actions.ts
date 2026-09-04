@@ -26,6 +26,7 @@ function revalidateBooks() {
   revalidatePath("/inventory");
   revalidatePath("/expenses");
   revalidatePath("/settings");
+  revalidatePath("/expected-orders");
 }
 
 export async function listBusinesses(): Promise<Business[]> {
