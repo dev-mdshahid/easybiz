@@ -17,16 +17,22 @@ export type Database = {
           created_at: string;
           id: number;
           name: string;
+          opening_balance: number | null;
+          opening_balance_on: string | null;
         };
         Insert: {
           created_at?: string;
           id?: never;
           name: string;
+          opening_balance?: number | null;
+          opening_balance_on?: string | null;
         };
         Update: {
           created_at?: string;
           id?: never;
           name?: string;
+          opening_balance?: number | null;
+          opening_balance_on?: string | null;
         };
         Relationships: [];
       };
@@ -214,6 +220,10 @@ export type Database = {
     Functions: {
       delete_csv_upload: {
         Args: { p_business_id: number; p_upload_id: number };
+        Returns: Json;
+      };
+      get_cash_position: {
+        Args: { p_business_id: number };
         Returns: Json;
       };
       get_dashboard_stats: {

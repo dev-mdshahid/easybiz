@@ -53,6 +53,53 @@ function asStats(value: unknown): DashboardStats {
   };
 }
 
+export type CashPosition = {
+  is_set: boolean;
+  opening_balance: number | null;
+  opening_balance_on: string | null;
+  payouts_since_opening: number;
+  cash_on_hand: number | null;
+};
+
+function emptyCashPosition(): CashPosition {
+  return {
+    is_set: false,
+    opening_balance: null,
+    opening_balance_on: null,
+    payouts_since_opening: 0,
+    cash_on_hand: null,
+  };
+}
+
+function asDateOnly(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  return value.slice(0, 10);
+}
+
+function asCashPosition(value: unknown): CashPosition {
+  if (!value || typeof value !== "object") return emptyCashPosition();
+  const row = value as Record<string, unknown>;
+  const isSet = row.is_set === true;
+  return {
+    is_set: isSet,
+    opening_balance: isSet ? toNumber(row.opening_balance) : null,
+    opening_balance_on: isSet ? asDateOnly(row.opening_balance_on) : null,
+    payouts_since_opening: toNumber(row.payouts_since_opening),
+    cash_on_hand: isSet ? toNumber(row.cash_on_hand) : null,
+  };
+}
+
+export async function getCashPosition(): Promise<CashPosition> {
+  const { current: business } = await getBusinessContext();
+  if (!business) return emptyCashPosition();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("get_cash_position", {
+    p_business_id: business.id,
+  });
+  if (error) throw new Error(error.message);
+  return asCashPosition(data);
+}
+
 export async function getDashboardStats(from?: string | null, to?: string | null) {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyStats();

@@ -1,7 +1,8 @@
 import { DatePresets } from "@/components/date-presets";
+import { CashPositionCard } from "@/components/cash-position";
 import { EmptyBooks, KpiCards } from "@/components/kpi-cards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDashboardStats, listUploads } from "@/app/actions";
+import { getCashPosition, getDashboardStats, listUploads } from "@/app/actions";
 import { getBusinessContext } from "@/app/business-actions";
 import { formatBdt } from "@/lib/money";
 import { formatDhaka, rangeFromPreset, type DatePreset } from "@/lib/time";
@@ -19,9 +20,10 @@ export default async function DashboardPage({
   const params = await searchParams;
   const preset = asPreset(params.preset);
   const range = rangeFromPreset(preset);
-  const [{ current }, stats, uploads] = await Promise.all([
+  const [{ current }, stats, cash, uploads] = await Promise.all([
     getBusinessContext(),
     getDashboardStats(range.from, range.to),
+    getCashPosition(),
     listUploads(),
   ]);
   const empty = stats.delivery_count + stats.return_count === 0;
@@ -37,6 +39,8 @@ export default async function DashboardPage({
         </div>
         <DatePresets preset={preset} />
       </div>
+
+      <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
 
       {empty ? <EmptyBooks needsBusiness={!current} /> : <KpiCards stats={stats} />}
 

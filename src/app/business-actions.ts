@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { parseOpeningBalanceFields } from "@/lib/opening-balance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Business } from "@/lib/supabase/database.types";
 
@@ -76,10 +77,27 @@ export async function createBusiness(
     return { ok: false, message: "Enter a business name." };
   }
 
+  const opening = parseOpeningBalanceFields(
+    String(formData.get("opening_balance") ?? ""),
+    String(formData.get("opening_balance_on") ?? ""),
+    { allowSkip: true },
+  );
+  if (!opening.ok) {
+    return { ok: false, message: opening.message };
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("businesses")
-    .insert({ name })
+    .insert({
+      name,
+      ...(opening.skipped
+        ? {}
+        : {
+            opening_balance: opening.amount,
+            opening_balance_on: opening.on,
+          }),
+    })
     .select("*")
     .single();
 
@@ -128,6 +146,43 @@ export async function deleteBusiness(
     } else {
       store.set(BUSINESS_COOKIE, "", { ...cookieOptions(), maxAge: 0 });
     }
+  }
+
+  revalidateBooks();
+  return { ok: true };
+}
+
+export async function updateOpeningBalance(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { current } = await getBusinessContext();
+  if (!current) {
+    return { ok: false, message: "Create a business before continuing." };
+  }
+
+  const opening = parseOpeningBalanceFields(
+    String(formData.get("opening_balance") ?? ""),
+    String(formData.get("opening_balance_on") ?? ""),
+    { allowSkip: false },
+  );
+  if (!opening.ok) {
+    return { ok: false, message: opening.message };
+  }
+  if (opening.skipped) {
+    return { ok: false, message: "Enter an opening amount and date." };
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      opening_balance: opening.amount,
+      opening_balance_on: opening.on,
+    })
+    .eq("id", current.id);
+
+  if (error) {
+    return { ok: false, message: error.message };
   }
 
   revalidateBooks();

@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { OpeningBalanceFields } from "@/components/opening-balance-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -194,6 +195,7 @@ export function BusinessSwitcher({
                   <p className="text-sm text-destructive">{error}</p>
                 ) : null}
               </div>
+              <OpeningBalanceFields required={false} optionalHint />
               <DialogFooter>
                 <Button type="submit" disabled={pending}>
                   {pending ? "Creating…" : "Create"}
