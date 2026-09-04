@@ -43,6 +43,10 @@ export function todayDhaka(): string {
   return dhakaDate.format(new Date());
 }
 
+export function dhakaYmd(iso: string): string {
+  return dhakaDate.format(new Date(iso));
+}
+
 function ymdParts(date: Date): { y: number; m: number; d: number } {
   const [y, m, d] = dhakaDate.format(date).split("-").map(Number);
   return { y, m, d };

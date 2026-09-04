@@ -1,10 +1,9 @@
-import { DatePresets } from "@/components/date-presets";
 import { CashPositionCard } from "@/components/cash-position";
-import { EmptyBooks, KpiCards } from "@/components/kpi-cards";
+import { DashboardPeriod } from "@/components/dashboard-period";
+import { StockPositionCard } from "@/components/stock-position";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCashPosition, getDashboardStats, listUploads } from "@/app/actions";
+import { getCashPosition, getDashboardStats, getStockPosition, listUploads } from "@/app/actions";
 import { getBusinessContext } from "@/app/business-actions";
-import { formatBdt } from "@/lib/money";
 import { formatDhaka, rangeFromPreset, type DatePreset } from "@/lib/time";
 
 function asPreset(value: string | undefined): DatePreset {
@@ -20,52 +19,39 @@ export default async function DashboardPage({
   const params = await searchParams;
   const preset = asPreset(params.preset);
   const range = rangeFromPreset(preset);
-  const [{ current }, stats, cash, uploads] = await Promise.all([
+  const [{ current }, stats, cash, stock, uploads] = await Promise.all([
     getBusinessContext(),
     getDashboardStats(range.from, range.to),
     getCashPosition(),
+    getStockPosition(),
     listUploads(),
   ]);
   const empty = stats.delivery_count + stats.return_count === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Revenue is cash Pathao collected. Net payout is what landed in your account.
-          </p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Cash and stock are running totals. Period figures use the date range
+          below.
+        </p>
+      </div>
+
+      <section className="grid gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">On hand</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
+          <StockPositionCard stock={stock} hasBusiness={Boolean(current)} />
         </div>
-        <DatePresets preset={preset} />
-      </div>
+      </section>
 
-      <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
-
-      {empty ? <EmptyBooks needsBusiness={!current} /> : <KpiCards stats={stats} />}
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Deliveries</CardDescription>
-            <CardTitle className="tabular-nums">{stats.delivery_count}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Returns</CardDescription>
-            <CardTitle className="tabular-nums">{stats.return_count}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Average collected</CardDescription>
-            <CardTitle className="tabular-nums">
-              {formatBdt(stats.average_collected)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      <DashboardPeriod
+        stats={stats}
+        empty={empty}
+        needsBusiness={!current}
+        preset={preset}
+      />
 
       <Card>
         <CardHeader>

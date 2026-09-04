@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, Upload } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Settings, Upload } from "lucide-react";
 
 import { BusinessSwitcher } from "@/components/business-switcher";
 import {
@@ -21,7 +21,9 @@ import type { Business } from "@/lib/supabase/database.types";
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/orders", label: "Orders", icon: Receipt },
+  { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/upload", label: "Upload CSV", icon: Upload },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar({

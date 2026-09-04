@@ -23,6 +23,8 @@ function revalidateBooks() {
   revalidatePath("/");
   revalidatePath("/orders");
   revalidatePath("/upload");
+  revalidatePath("/inventory");
+  revalidatePath("/settings");
 }
 
 export async function listBusinesses(): Promise<Business[]> {
@@ -86,6 +88,15 @@ export async function createBusiness(
     return { ok: false, message: opening.message };
   }
 
+  const openingStock = parseOpeningBalanceFields(
+    String(formData.get("opening_stock") ?? ""),
+    String(formData.get("opening_stock_on") ?? ""),
+    { allowSkip: true, kind: "stock" },
+  );
+  if (!openingStock.ok) {
+    return { ok: false, message: openingStock.message };
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("businesses")
@@ -96,6 +107,12 @@ export async function createBusiness(
         : {
             opening_balance: opening.amount,
             opening_balance_on: opening.on,
+          }),
+      ...(openingStock.skipped
+        ? {}
+        : {
+            opening_stock: openingStock.amount,
+            opening_stock_on: openingStock.on,
           }),
     })
     .select("*")
@@ -178,6 +195,43 @@ export async function updateOpeningBalance(
     .update({
       opening_balance: opening.amount,
       opening_balance_on: opening.on,
+    })
+    .eq("id", current.id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidateBooks();
+  return { ok: true };
+}
+
+export async function updateOpeningStock(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { current } = await getBusinessContext();
+  if (!current) {
+    return { ok: false, message: "Create a business before continuing." };
+  }
+
+  const opening = parseOpeningBalanceFields(
+    String(formData.get("opening_stock") ?? ""),
+    String(formData.get("opening_stock_on") ?? ""),
+    { allowSkip: false, kind: "stock" },
+  );
+  if (!opening.ok) {
+    return { ok: false, message: opening.message };
+  }
+  if (opening.skipped) {
+    return { ok: false, message: "Enter an opening stock amount and date." };
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      opening_stock: opening.amount,
+      opening_stock_on: opening.on,
     })
     .eq("id", current.id);
 

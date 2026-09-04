@@ -19,6 +19,9 @@ export type Database = {
           name: string;
           opening_balance: number | null;
           opening_balance_on: string | null;
+          opening_stock: number | null;
+          opening_stock_on: string | null;
+          inventory_cost_ratio: number | null;
         };
         Insert: {
           created_at?: string;
@@ -26,6 +29,9 @@ export type Database = {
           name: string;
           opening_balance?: number | null;
           opening_balance_on?: string | null;
+          opening_stock?: number | null;
+          opening_stock_on?: string | null;
+          inventory_cost_ratio?: number | null;
         };
         Update: {
           created_at?: string;
@@ -33,8 +39,49 @@ export type Database = {
           name?: string;
           opening_balance?: number | null;
           opening_balance_on?: string | null;
+          opening_stock?: number | null;
+          opening_stock_on?: string | null;
+          inventory_cost_ratio?: number | null;
         };
         Relationships: [];
+      };
+      inventory_movements: {
+        Row: {
+          amount: number;
+          business_id: number;
+          created_at: string;
+          id: number;
+          kind: string;
+          note: string | null;
+          occurred_on: string;
+        };
+        Insert: {
+          amount: number;
+          business_id: number;
+          created_at?: string;
+          id?: never;
+          kind: string;
+          note?: string | null;
+          occurred_on: string;
+        };
+        Update: {
+          amount?: number;
+          business_id?: number;
+          created_at?: string;
+          id?: never;
+          kind?: string;
+          note?: string | null;
+          occurred_on?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       csv_uploads: {
         Row: {
@@ -173,6 +220,82 @@ export type Database = {
           },
         ];
       };
+      products: {
+        Row: {
+          business_id: number;
+          created_at: string;
+          id: number;
+          is_default: boolean;
+          name: string;
+          selling_price: number | null;
+        };
+        Insert: {
+          business_id: number;
+          created_at?: string;
+          id?: never;
+          is_default?: boolean;
+          name: string;
+          selling_price?: number | null;
+        };
+        Update: {
+          business_id?: number;
+          created_at?: string;
+          id?: never;
+          is_default?: boolean;
+          name?: string;
+          selling_price?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "products_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_cost_lines: {
+        Row: {
+          id: number;
+          label: string;
+          mode: string;
+          product_id: number;
+          slot: string;
+          sort_order: number;
+          source: string;
+          value: number | null;
+        };
+        Insert: {
+          id?: never;
+          label: string;
+          mode: string;
+          product_id: number;
+          slot: string;
+          sort_order: number;
+          source?: string;
+          value?: number | null;
+        };
+        Update: {
+          id?: never;
+          label?: string;
+          mode?: string;
+          product_id?: number;
+          slot?: string;
+          sort_order?: number;
+          source?: string;
+          value?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_cost_lines_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       pathao_invoices_current: {
@@ -226,6 +349,10 @@ export type Database = {
         Args: { p_business_id: number };
         Returns: Json;
       };
+      get_stock_position: {
+        Args: { p_business_id: number };
+        Returns: Json;
+      };
       get_dashboard_stats: {
         Args: { p_business_id: number; p_from?: string; p_to?: string };
         Returns: Json;
@@ -243,3 +370,8 @@ export type Database = {
 export type PathaoInvoice = Database["public"]["Tables"]["pathao_invoices"]["Row"];
 export type CsvUpload = Database["public"]["Tables"]["csv_uploads"]["Row"];
 export type Business = Database["public"]["Tables"]["businesses"]["Row"];
+export type InventoryMovement =
+  Database["public"]["Tables"]["inventory_movements"]["Row"];
+export type Product = Database["public"]["Tables"]["products"]["Row"];
+export type ProductCostLine =
+  Database["public"]["Tables"]["product_cost_lines"]["Row"];

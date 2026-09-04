@@ -1,56 +1,6 @@
 import Link from "next/link";
 
-import { formatBdt } from "@/lib/money";
-import type { DashboardStats } from "@/app/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-export function KpiCards({ stats }: { stats: DashboardStats }) {
-  const cards = [
-    {
-      label: "Revenue",
-      value: formatBdt(stats.revenue),
-      hint: "Collected from customers on deliveries",
-    },
-    {
-      label: "Pathao cost",
-      value: formatBdt(stats.pathao_cost),
-      hint: "Final fee on deliveries",
-    },
-    {
-      label: "Return cost",
-      value: formatBdt(stats.return_cost),
-      hint: "Final fee on returned consignments",
-    },
-    {
-      label: "Net payout",
-      value: formatBdt(stats.profit),
-      hint: "What Pathao paid you",
-    },
-    {
-      label: "Profit",
-      value: formatBdt(stats.revenue * 0.3),
-      hint: "30% of revenue",
-    },
-  ];
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {cards.map((card) => (
-        <Card key={card.label}>
-          <CardHeader>
-            <CardDescription>{card.label}</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums tracking-tight">
-              {card.value}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{card.hint}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
 
 export function EmptyBooks({ needsBusiness = false }: { needsBusiness?: boolean }) {
   return (

@@ -10,7 +10,10 @@ import {
   type RowError,
 } from "@/lib/pathao-csv";
 import { toNumber } from "@/lib/money";
+import { applyStaged, profitStatement, roundMoney, summarizeDeliveries, type CostLineInput, type ProfitStatementRow } from "@/lib/cost-recipe";
+import { dhakaYmd } from "@/lib/time";
 import { getBusinessContext } from "@/app/business-actions";
+import { loadDefaultCostLines } from "@/app/settings-actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CsvUpload, PathaoInvoice } from "@/lib/supabase/database.types";
 
@@ -24,7 +27,21 @@ export type DashboardStats = {
   pathao_cost: number;
   return_cost: number;
   profit: number;
+  operating_profit: number;
   average_collected: number;
+  product_cost: number;
+  delivery_cost: number;
+  packaging_cost: number;
+  marketing_cost: number;
+  recipe_delivery: number;
+  other_cost: number;
+  auto_delivery: boolean;
+  has_profit_line: boolean;
+  profit_line: number;
+  leftover: number;
+  custom_costs: { label: string; amount: number }[];
+  statement: ProfitStatementRow[];
+  final_payout: number;
 };
 
 function emptyStats(): DashboardStats {
@@ -35,7 +52,21 @@ function emptyStats(): DashboardStats {
     pathao_cost: 0,
     return_cost: 0,
     profit: 0,
+    operating_profit: 0,
     average_collected: 0,
+    product_cost: 0,
+    delivery_cost: 0,
+    packaging_cost: 0,
+    marketing_cost: 0,
+    recipe_delivery: 0,
+    other_cost: 0,
+    auto_delivery: false,
+    has_profit_line: false,
+    profit_line: 0,
+    leftover: 0,
+    custom_costs: [],
+    statement: [],
+    final_payout: 0,
   };
 }
 
@@ -43,6 +74,7 @@ function asStats(value: unknown): DashboardStats {
   if (!value || typeof value !== "object") return emptyStats();
   const row = value as Record<string, unknown>;
   return {
+    ...emptyStats(),
     delivery_count: toNumber(row.delivery_count),
     return_count: toNumber(row.return_count),
     revenue: toNumber(row.revenue),
@@ -58,6 +90,7 @@ export type CashPosition = {
   opening_balance: number | null;
   opening_balance_on: string | null;
   payouts_since_opening: number;
+  stock_purchases: number;
   cash_on_hand: number | null;
 };
 
@@ -67,6 +100,7 @@ function emptyCashPosition(): CashPosition {
     opening_balance: null,
     opening_balance_on: null,
     payouts_since_opening: 0,
+    stock_purchases: 0,
     cash_on_hand: null,
   };
 }
@@ -85,6 +119,7 @@ function asCashPosition(value: unknown): CashPosition {
     opening_balance: isSet ? toNumber(row.opening_balance) : null,
     opening_balance_on: isSet ? asDateOnly(row.opening_balance_on) : null,
     payouts_since_opening: toNumber(row.payouts_since_opening),
+    stock_purchases: toNumber(row.stock_purchases),
     cash_on_hand: isSet ? toNumber(row.cash_on_hand) : null,
   };
 }
@@ -100,6 +135,177 @@ export async function getCashPosition(): Promise<CashPosition> {
   return asCashPosition(data);
 }
 
+export type StockPosition = {
+  is_set: boolean;
+  opening_stock: number | null;
+  opening_stock_on: string | null;
+  inventory_cost_ratio: number | null;
+  purchases_since_opening: number;
+  adjustments_since_opening: number;
+  cogs_since_opening: number;
+  stock_on_hand: number | null;
+  has_product_cost: boolean;
+};
+
+function emptyStockPosition(): StockPosition {
+  return {
+    is_set: false,
+    opening_stock: null,
+    opening_stock_on: null,
+    inventory_cost_ratio: null,
+    purchases_since_opening: 0,
+    adjustments_since_opening: 0,
+    cogs_since_opening: 0,
+    stock_on_hand: null,
+    has_product_cost: false,
+  };
+}
+
+function asRatio(value: unknown): number | null {
+  if (value == null) return null;
+  const n = toNumber(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function asStockPosition(value: unknown): StockPosition {
+  if (!value || typeof value !== "object") return emptyStockPosition();
+  const row = value as Record<string, unknown>;
+  const isSet = row.is_set === true;
+  const ratio = row.inventory_cost_ratio;
+  return {
+    is_set: isSet,
+    opening_stock: isSet ? toNumber(row.opening_stock) : null,
+    opening_stock_on: isSet ? asDateOnly(row.opening_stock_on) : null,
+    inventory_cost_ratio:
+      ratio == null || ratio === "" ? null : asRatio(ratio),
+    purchases_since_opening: toNumber(row.purchases_since_opening),
+    adjustments_since_opening: toNumber(row.adjustments_since_opening),
+    cogs_since_opening: toNumber(row.cogs_since_opening),
+    stock_on_hand: isSet ? toNumber(row.stock_on_hand) : null,
+    has_product_cost: false,
+  };
+}
+
+function withRatioFallback(
+  lines: CostLineInput[],
+  ratio: number | null,
+): CostLineInput[] {
+  const hasProduct = lines.some(
+    (line) => line.slot === "product_cost" && line.value != null,
+  );
+  if (hasProduct || ratio == null) return lines;
+  const percent = roundMoney(ratio * 100);
+  if (lines.some((line) => line.slot === "product_cost")) {
+    return lines.map((line) =>
+      line.slot === "product_cost"
+        ? { ...line, mode: "percent", value: percent }
+        : line,
+    );
+  }
+  return [
+    ...lines,
+    {
+      slot: "product_cost",
+      label: "Product cost",
+      mode: "percent",
+      source: "manual",
+      value: percent,
+      sort_order: 10,
+    },
+  ];
+}
+
+type DeliverySlice = {
+  collected_amount: number;
+  final_fee: number;
+  created_at: string;
+};
+
+async function listDeliveries(
+  businessId: number,
+  from?: string | null,
+  to?: string | null,
+): Promise<DeliverySlice[]> {
+  const supabase = createAdminClient();
+  const pageSize = 1000;
+  const rows: DeliverySlice[] = [];
+  let offset = 0;
+  for (;;) {
+    let query = supabase
+      .from("pathao_invoices_current")
+      .select("collected_amount, final_fee, created_at")
+      .eq("business_id", businessId)
+      .eq("invoice_type", "delivery")
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (from) query = query.gte("created_at", from);
+    if (to) query = query.lt("created_at", to);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    for (const row of batch) {
+      if (!row.created_at) continue;
+      rows.push({
+        collected_amount: toNumber(row.collected_amount),
+        final_fee: toNumber(row.final_fee),
+        created_at: row.created_at,
+      });
+    }
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return rows;
+}
+
+export async function getStockPosition(): Promise<StockPosition> {
+  const { current: business } = await getBusinessContext();
+  if (!business) return emptyStockPosition();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("get_stock_position", {
+    p_business_id: business.id,
+  });
+  if (error) throw new Error(error.message);
+  const position = asStockPosition(data);
+  const recipe = withRatioFallback(
+    await loadDefaultCostLines(),
+    position.inventory_cost_ratio,
+  );
+  position.has_product_cost = recipe.some(
+    (line) => line.slot === "product_cost" && line.value != null,
+  );
+
+  if (!position.is_set || !position.opening_stock_on) {
+    return position;
+  }
+
+  const deliveries = await listDeliveries(business.id);
+  let cogs = 0;
+  for (const row of deliveries) {
+    if (dhakaYmd(row.created_at) >= position.opening_stock_on) {
+      cogs = roundMoney(
+        cogs +
+          applyStaged(
+            {
+              collected: row.collected_amount,
+              deliveryCharge: row.final_fee,
+              returnFees: 0,
+              orderCount: 1,
+            },
+            recipe,
+          ).productCost,
+      );
+    }
+  }
+  position.cogs_since_opening = cogs;
+  position.stock_on_hand = roundMoney(
+    toNumber(position.opening_stock) +
+      position.purchases_since_opening +
+      position.adjustments_since_opening -
+      cogs,
+  );
+  return position;
+}
+
 export async function getDashboardStats(from?: string | null, to?: string | null) {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyStats();
@@ -110,7 +316,35 @@ export async function getDashboardStats(from?: string | null, to?: string | null
     p_to: to || undefined,
   });
   if (error) throw new Error(error.message);
-  return asStats(data);
+  const stats = asStats(data);
+  const recipe = withRatioFallback(
+    await loadDefaultCostLines(),
+    business.inventory_cost_ratio,
+  );
+  const deliveries = await listDeliveries(business.id, from, to);
+  const totals = summarizeDeliveries(
+    deliveries.map((row) => ({
+      collected: row.collected_amount,
+      pathaoFee: row.final_fee,
+    })),
+    recipe,
+    stats.return_cost,
+  );
+  stats.product_cost = totals.productCost;
+  stats.delivery_cost = totals.deliveryCharge;
+  stats.packaging_cost = totals.packagingCost;
+  stats.marketing_cost = totals.marketingCost;
+  stats.recipe_delivery = totals.extraDelivery;
+  stats.other_cost = totals.otherCost;
+  stats.auto_delivery = totals.autoDelivery;
+  stats.has_profit_line = totals.hasProfitLine;
+  stats.profit_line = totals.profitAmount;
+  stats.leftover = totals.leftover;
+  stats.custom_costs = totals.customLines;
+  stats.final_payout = totals.netPayout;
+  stats.operating_profit = totals.operatingProfit;
+  stats.statement = profitStatement(totals);
+  return stats;
 }
 
 export async function listUploads(): Promise<CsvUpload[]> {
@@ -299,6 +533,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
   revalidatePath("/");
   revalidatePath("/orders");
   revalidatePath("/upload");
+  revalidatePath("/inventory");
 
   return {
     ok: true,
@@ -370,6 +605,7 @@ export async function deleteCsvUpload(uploadId: number): Promise<DeleteUploadRes
   revalidatePath("/");
   revalidatePath("/orders");
   revalidatePath("/upload");
+  revalidatePath("/inventory");
   return result;
 }
 
