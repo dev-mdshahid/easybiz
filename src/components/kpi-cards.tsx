@@ -26,10 +26,15 @@ export function KpiCards({ stats }: { stats: DashboardStats }) {
       value: formatBdt(stats.profit),
       hint: "What Pathao paid you",
     },
+    {
+      label: "Profit",
+      value: formatBdt(stats.revenue * 0.3),
+      hint: "30% of revenue",
+    },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
         <Card key={card.label}>
           <CardHeader>
