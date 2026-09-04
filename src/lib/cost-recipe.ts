@@ -279,7 +279,10 @@ export type ProfitStatementRow = {
   hint?: string;
 };
 
-export function profitStatement(split: StagedSplit): ProfitStatementRow[] {
+export function profitStatement(
+  split: StagedSplit,
+  loggedExpenses = 0,
+): ProfitStatementRow[] {
   const rows: ProfitStatementRow[] = [
     {
       key: "collected",
@@ -403,6 +406,32 @@ export function profitStatement(split: StagedSplit): ProfitStatementRow[] {
       hint: "What remains after product cost",
     });
   }
+
+  const expenses = roundMoney(loggedExpenses);
+  if (expenses === 0) return rows;
+
+  const profitRow = rows.find((row) => row.key === "profit");
+  if (profitRow) {
+    profitRow.key = "recipe-profit";
+    profitRow.label = "Recipe profit";
+    profitRow.role = "subtotal";
+    profitRow.hint = "Share of after costs, before logged expenses";
+  }
+
+  rows.push({
+    key: "logged-expenses",
+    label: "Logged expenses",
+    amount: signedCost(expenses),
+    role: "cost",
+    hint: "Cash spent in this date range",
+  });
+  rows.push({
+    key: "profit",
+    label: "Profit",
+    amount: roundMoney(split.operatingProfit - expenses),
+    role: "total",
+    hint: "Recipe profit minus logged expenses",
+  });
 
   return rows;
 }

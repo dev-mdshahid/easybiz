@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import {
   applyStaged,
   BUILTIN_LABELS,
+  isActiveLine,
   mergeBuiltinLines,
   profitStatement,
   type CostLineInput,
@@ -240,6 +241,17 @@ export function SettingsClient({
               and profit percents apply to after costs. Delivery Auto uses each
               order’s Pathao fee; Manual is extra after net payout.
             </CardDescription>
+            {lines.some(
+              (line) =>
+                (line.slot === "packaging" || line.slot === "marketing") &&
+                isActiveLine(line),
+            ) ? (
+              <p className="text-xs text-muted-foreground">
+                Packaging and marketing here are estimates per order. Actual
+                cash spend is logged on Expenses. Do not enter the same spend
+                in both unless you mean to.
+              </p>
+            ) : null}
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -399,8 +411,9 @@ export function SettingsClient({
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
-              Same steps as the dashboard: net payout, after costs, then product
-              and profit shares.
+              Recipe only — net payout, after costs, then product and profit
+              shares. Logged expenses appear on the dashboard, not in this
+              preview.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">

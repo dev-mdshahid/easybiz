@@ -51,8 +51,8 @@ export function OpeningBalanceFields({
         <p className="text-xs text-muted-foreground">
           Cash you had at the start of this day. Pathao payouts land two days
           after the consignment date (1 Sept counts as 3 Sept). Stock purchases
-          on this day and after come out of this cash. Adjustments and other
-          expenses are not deducted.
+          and logged expenses on this day and after come out of this cash.
+          Stock adjustments do not change cash.
         </p>
       </div>
     </div>

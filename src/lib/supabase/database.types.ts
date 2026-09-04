@@ -45,6 +45,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      expenses: {
+        Row: {
+          amount: number;
+          business_id: number;
+          category: string;
+          created_at: string;
+          id: number;
+          note: string | null;
+          occurred_on: string;
+        };
+        Insert: {
+          amount: number;
+          business_id: number;
+          category: string;
+          created_at?: string;
+          id?: never;
+          note?: string | null;
+          occurred_on: string;
+        };
+        Update: {
+          amount?: number;
+          business_id?: number;
+          category?: string;
+          created_at?: string;
+          id?: never;
+          note?: string | null;
+          occurred_on?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expenses_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       inventory_movements: {
         Row: {
           amount: number;
@@ -372,6 +410,7 @@ export type CsvUpload = Database["public"]["Tables"]["csv_uploads"]["Row"];
 export type Business = Database["public"]["Tables"]["businesses"]["Row"];
 export type InventoryMovement =
   Database["public"]["Tables"]["inventory_movements"]["Row"];
+export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductCostLine =
   Database["public"]["Tables"]["product_cost_lines"]["Row"];

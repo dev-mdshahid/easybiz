@@ -48,8 +48,8 @@ export function DashboardPeriod({
         <div>
           <h2 className="text-lg font-semibold tracking-tight">This period</h2>
           <p className="text-sm text-muted-foreground">
-            Pathao cash and the default item recipe. Date range does not change
-            cash on hand or stock.
+            Pathao cash, the default item recipe, and logged expenses. Date
+            range does not change cash on hand or stock.
           </p>
         </div>
         <DatePresets preset={preset} />
@@ -107,13 +107,21 @@ export function DashboardPeriod({
                 {formatBdt(stats.operating_profit)}
               </CardTitle>
               <CardDescription>
-                After costs is net payout minus packaging and other costs. Product
-                and profit percents apply to after costs.{" "}
+                After costs is net payout minus packaging and other costs.
+                Product and profit percents apply to after costs. Logged
+                expenses come off recipe profit.{" "}
                 <Link
                   href="/settings"
                   className="font-medium text-primary underline-offset-4 hover:underline"
                 >
                   Settings
+                </Link>
+                {" · "}
+                <Link
+                  href="/expenses"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Expenses
                 </Link>
               </CardDescription>
             </CardHeader>

@@ -24,6 +24,7 @@ function revalidateBooks() {
   revalidatePath("/orders");
   revalidatePath("/upload");
   revalidatePath("/inventory");
+  revalidatePath("/expenses");
   revalidatePath("/settings");
 }
 

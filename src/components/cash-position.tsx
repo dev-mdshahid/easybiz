@@ -96,23 +96,26 @@ export function CashPositionCard({
                 Pathao {formatBdt(cash.payouts_since_opening)}
                 {" · "}
                 Stock bought {formatBdt(cash.stock_purchases)}
+                {" · "}
+                Expenses {formatBdt(cash.expenses)}
               </p>
               {cash.cash_on_hand != null && cash.cash_on_hand < 0 ? (
                 <p className="text-xs text-destructive">
-                  Cash is below zero. Check opening cash or stock purchases.
+                  Cash is below zero. Check opening cash, stock purchases, or
+                  expenses.
                 </p>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                Opening plus Pathao payouts, minus stock purchases. Pathao lands
-                two days after the consignment date. Purchases use the purchase
-                date, on or after this counted-on day. Adjustments and other
-                expenses are not deducted.
+                Opening plus Pathao payouts, minus stock purchases and logged
+                expenses. Pathao lands two days after the consignment date.
+                Purchases and expenses use their date, on or after this
+                counted-on day. Stock adjustments do not change cash.
               </p>
             </>
           ) : hasBusiness ? (
             <p className="text-sm text-muted-foreground">
               Add the cash you already had so this number can follow Pathao
-              payouts and stock purchases.
+              payouts, stock purchases, and expenses.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -136,10 +139,10 @@ export function CashPositionCard({
                   {cash.is_set ? "Edit opening cash" : "Add opening cash"}
                 </DialogTitle>
                 <DialogDescription>
-                  Changing the date changes which Pathao payouts and stock
-                  purchases count toward cash on hand. Each consignment is
-                  counted two days after its date. Purchases use the purchase
-                  date.
+                  Changing the date changes which Pathao payouts, stock
+                  purchases, and expenses count toward cash on hand. Each
+                  consignment is counted two days after its date. Purchases
+                  and expenses use their date.
                 </DialogDescription>
               </DialogHeader>
               <OpeningBalanceFields

@@ -186,4 +186,29 @@ describe("profitStatement", () => {
     expect(rows.find((row) => row.key === "product")?.amount).toBe(-535.5);
     expect(rows.find((row) => row.key === "profit")?.amount).toBe(229.5);
   });
+
+  it("subtracts logged expenses after recipe profit without changing shares", () => {
+    const split = applyStaged(
+      { collected: 1000, deliveryCharge: 80, returnFees: 0, orderCount: 1 },
+      [packaging20, product70, profit30],
+    );
+    expect(split.productCost).toBe(630);
+    expect(split.profitAmount).toBe(270);
+    const rows = profitStatement(split, 50);
+    expect(rows.find((row) => row.key === "product")?.amount).toBe(-630);
+    expect(rows.find((row) => row.key === "recipe-profit")?.amount).toBe(270);
+    expect(rows.find((row) => row.key === "logged-expenses")?.amount).toBe(-50);
+    expect(rows.find((row) => row.key === "profit")?.amount).toBe(220);
+  });
+
+  it("leaves the statement unchanged when logged expenses are zero", () => {
+    const split = applyStaged(
+      { collected: 1000, deliveryCharge: 80, returnFees: 0, orderCount: 1 },
+      [product70, profit30],
+    );
+    const rows = profitStatement(split, 0);
+    expect(rows.find((row) => row.key === "recipe-profit")).toBeUndefined();
+    expect(rows.find((row) => row.key === "logged-expenses")).toBeUndefined();
+    expect(rows.find((row) => row.key === "profit")?.amount).toBe(276);
+  });
 });

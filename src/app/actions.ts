@@ -13,6 +13,7 @@ import { toNumber } from "@/lib/money";
 import { applyStaged, profitStatement, roundMoney, summarizeDeliveries, type CostLineInput, type ProfitStatementRow } from "@/lib/cost-recipe";
 import { dhakaYmd } from "@/lib/time";
 import { getBusinessContext } from "@/app/business-actions";
+import { sumExpenses } from "@/app/expense-actions";
 import { loadDefaultCostLines } from "@/app/settings-actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CsvUpload, PathaoInvoice } from "@/lib/supabase/database.types";
@@ -39,6 +40,7 @@ export type DashboardStats = {
   has_profit_line: boolean;
   profit_line: number;
   leftover: number;
+  logged_expenses: number;
   custom_costs: { label: string; amount: number }[];
   statement: ProfitStatementRow[];
   final_payout: number;
@@ -64,6 +66,7 @@ function emptyStats(): DashboardStats {
     has_profit_line: false,
     profit_line: 0,
     leftover: 0,
+    logged_expenses: 0,
     custom_costs: [],
     statement: [],
     final_payout: 0,
@@ -91,6 +94,7 @@ export type CashPosition = {
   opening_balance_on: string | null;
   payouts_since_opening: number;
   stock_purchases: number;
+  expenses: number;
   cash_on_hand: number | null;
 };
 
@@ -101,6 +105,7 @@ function emptyCashPosition(): CashPosition {
     opening_balance_on: null,
     payouts_since_opening: 0,
     stock_purchases: 0,
+    expenses: 0,
     cash_on_hand: null,
   };
 }
@@ -120,6 +125,7 @@ function asCashPosition(value: unknown): CashPosition {
     opening_balance_on: isSet ? asDateOnly(row.opening_balance_on) : null,
     payouts_since_opening: toNumber(row.payouts_since_opening),
     stock_purchases: toNumber(row.stock_purchases),
+    expenses: toNumber(row.expenses),
     cash_on_hand: isSet ? toNumber(row.cash_on_hand) : null,
   };
 }
@@ -342,8 +348,10 @@ export async function getDashboardStats(from?: string | null, to?: string | null
   stats.leftover = totals.leftover;
   stats.custom_costs = totals.customLines;
   stats.final_payout = totals.netPayout;
-  stats.operating_profit = totals.operatingProfit;
-  stats.statement = profitStatement(totals);
+  const logged = await sumExpenses(from, to);
+  stats.logged_expenses = logged;
+  stats.operating_profit = roundMoney(totals.operatingProfit - logged);
+  stats.statement = profitStatement(totals, logged);
   return stats;
 }
 

@@ -26,7 +26,9 @@ export default async function DashboardPage({
     getStockPosition(),
     listUploads(),
   ]);
-  const empty = stats.delivery_count + stats.return_count === 0;
+  const empty =
+    stats.delivery_count + stats.return_count === 0 &&
+    stats.logged_expenses === 0;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
