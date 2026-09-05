@@ -167,6 +167,19 @@ export function OrderCreationSettings({
               defaultValue={String(settings.default_item_weight)}
             />
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="screenshot_batch_size">Screenshots per extract</Label>
+            <Input
+              id="screenshot_batch_size"
+              name="screenshot_batch_size"
+              inputMode="numeric"
+              defaultValue={String(settings.screenshot_batch_size)}
+            />
+            <p className="text-xs text-muted-foreground">
+              How many screenshots go in one AI extract (1–16). Extra files wait
+              in a queue on Expected orders; they are not sent all at once.
+            </p>
+          </div>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Save AI settings"}

@@ -69,6 +69,44 @@ export type ProductHint = {
 };
 
 export const EXPECTED_ORDER_MAX_IMAGES = 16;
+export const EXPECTED_ORDER_MAX_QUEUE = 64;
+
+export function clampScreenshotBatchSize(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return EXPECTED_ORDER_MAX_IMAGES;
+  return Math.min(EXPECTED_ORDER_MAX_IMAGES, Math.max(1, n));
+}
+
+export function screenshotBatchOverlap(batchSize: number): number {
+  const size = clampScreenshotBatchSize(batchSize);
+  return Math.min(2, Math.max(0, size - 1));
+}
+
+export type ScreenshotBatch = {
+  start: number;
+  end: number;
+  newStart: number;
+};
+
+export function planScreenshotBatches(options: {
+  imageCount: number;
+  batchSize: number;
+}): ScreenshotBatch[] {
+  const count = Math.max(0, Math.floor(Number(options.imageCount) || 0));
+  if (count === 0) return [];
+  const batchSize = clampScreenshotBatchSize(options.batchSize);
+  const overlap = screenshotBatchOverlap(batchSize);
+  const batches: ScreenshotBatch[] = [];
+  let processed = 0;
+  while (processed < count) {
+    const start = processed === 0 ? 0 : Math.max(0, processed - overlap);
+    const end = Math.min(count, start + batchSize);
+    if (end <= processed) break;
+    batches.push({ start, end, newStart: processed });
+    processed = end;
+  }
+  return batches;
+}
 
 export type ExtractedOrderDraft = {
   recipient_name?: string | null;
@@ -417,4 +455,106 @@ export function collapseExtractedOrders<T extends ExtractedOrderFragment>(
   }
 
   return collapsed;
+}
+
+export type QueuePriorOrder = {
+  id: number;
+  recipient_phone: string;
+  amount_to_collect: number;
+  status: string;
+};
+
+export type QueueMatchDecision =
+  | { action: "insert" }
+  | { action: "update"; priorId: number }
+  | { action: "skip"; warning: string };
+
+export function matchDraftToQueuePrior(
+  draft: {
+    recipient_phone?: string | null;
+    amount_to_collect?: number | string | null;
+  },
+  priors: QueuePriorOrder[],
+  usedPriorIds: Set<number>,
+): QueueMatchDecision {
+  const phone = usablePhone(draft.recipient_phone ?? null);
+  if (!phone) return { action: "insert" };
+  const draftAmount = parseAmount(draft.amount_to_collect).value;
+
+  for (const prior of priors) {
+    if (usedPriorIds.has(prior.id)) continue;
+    if (usablePhone(prior.recipient_phone) !== phone) continue;
+    if (prior.status === "discarded") continue;
+
+    const priorAmount = Number(prior.amount_to_collect);
+    const priorAmountNum = Number.isFinite(priorAmount) ? priorAmount : 0;
+    const completingMissingPrice =
+      prior.status === "needs_review" && priorAmountNum === 0 && draftAmount != null;
+    const differentCod =
+      draftAmount != null &&
+      draftAmount !== priorAmountNum &&
+      !completingMissingPrice;
+
+    if (prior.status === "created") {
+      if (differentCod) return { action: "insert" };
+      return {
+        action: "skip",
+        warning: "Skipped a duplicate of an order already created in Pathao.",
+      };
+    }
+
+    if (differentCod) continue;
+    return { action: "update", priorId: prior.id };
+  }
+
+  return { action: "insert" };
+}
+
+export function overlayPriorWithDraft(
+  prior: {
+    recipient_name: string;
+    recipient_phone: string;
+    recipient_address: string;
+    recipient_address_raw: string;
+    recipient_city: string;
+    recipient_zone: string;
+    recipient_area: string;
+    amount_to_collect: number;
+    item_quantity: number;
+    item_weight: number;
+    item_desc: string;
+    special_instruction: string;
+    item_type: string;
+    store_name: string;
+    warnings: unknown;
+  },
+  next: NormalizedExpectedOrder,
+): ExtractedOrderDraft {
+  const priorAmount = Number(prior.amount_to_collect) || 0;
+  const amount =
+    priorAmount === 0 && next.amount_to_collect > 0 ? next.amount_to_collect : priorAmount || next.amount_to_collect;
+  return {
+    recipient_name: prior.recipient_name.trim() || next.recipient_name,
+    recipient_phone: prior.recipient_phone.trim() || next.recipient_phone,
+    recipient_address:
+      next.recipient_address.length > prior.recipient_address.length
+        ? next.recipient_address
+        : prior.recipient_address.trim() || next.recipient_address,
+    recipient_address_raw: prior.recipient_address_raw.trim() || next.recipient_address_raw,
+    recipient_city: prior.recipient_city.trim() || next.recipient_city,
+    recipient_zone: prior.recipient_zone.trim() || next.recipient_zone,
+    recipient_area: prior.recipient_area.trim() || next.recipient_area,
+    amount_to_collect: amount,
+    item_quantity: prior.item_quantity || next.item_quantity,
+    item_weight: prior.item_weight || next.item_weight,
+    item_desc: prior.item_desc.trim() || next.item_desc,
+    special_instruction: prior.special_instruction.trim() || next.special_instruction,
+    item_type: prior.item_type || next.item_type,
+    store_name: prior.store_name.trim() || next.store_name,
+    warnings: uniqueWarnings([
+      ...asWarningList(prior.warnings),
+      ...next.warnings,
+      "Updated from a later screenshot batch.",
+    ]),
+  };
 }

@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { parseAiOrdersPayload } from "@/lib/ai-client";
 import {
+  clampScreenshotBatchSize,
   collapseExtractedOrders,
   isValidBdMobile,
+  matchDraftToQueuePrior,
   merchantOrderId,
   normalizeExpectedOrder,
   normalizePhone,
+  overlayPriorWithDraft,
   parseAmount,
+  planScreenshotBatches,
+  screenshotBatchOverlap,
   statusAfterEdit,
   type ExtractedOrderFragment,
 } from "@/lib/expected-order";
@@ -386,5 +391,124 @@ describe("parseAiOrdersPayload", () => {
       ],
     });
     expect(orders[0].source_image_indexes).toEqual([4, 5]);
+  });
+});
+
+describe("planScreenshotBatches", () => {
+  it("keeps a small drop in one batch", () => {
+    expect(planScreenshotBatches({ imageCount: 5, batchSize: 16 })).toEqual([
+      { start: 0, end: 5, newStart: 0 },
+    ]);
+  });
+
+  it("overlaps two screenshots on a 20-image drop with size 16", () => {
+    expect(screenshotBatchOverlap(16)).toBe(2);
+    expect(planScreenshotBatches({ imageCount: 20, batchSize: 16 })).toEqual([
+      { start: 0, end: 16, newStart: 0 },
+      { start: 14, end: 20, newStart: 16 },
+    ]);
+  });
+
+  it("uses no overlap when batch size is 1", () => {
+    expect(screenshotBatchOverlap(1)).toBe(0);
+    expect(planScreenshotBatches({ imageCount: 3, batchSize: 1 })).toEqual([
+      { start: 0, end: 1, newStart: 0 },
+      { start: 1, end: 2, newStart: 1 },
+      { start: 2, end: 3, newStart: 2 },
+    ]);
+  });
+
+  it("covers exact multiples and a leftover image after overlap", () => {
+    expect(planScreenshotBatches({ imageCount: 32, batchSize: 16 })).toEqual([
+      { start: 0, end: 16, newStart: 0 },
+      { start: 14, end: 30, newStart: 16 },
+      { start: 28, end: 32, newStart: 30 },
+    ]);
+    expect(planScreenshotBatches({ imageCount: 17, batchSize: 16 })).toEqual([
+      { start: 0, end: 16, newStart: 0 },
+      { start: 14, end: 17, newStart: 16 },
+    ]);
+  });
+
+  it("clamps invalid batch sizes", () => {
+    expect(clampScreenshotBatchSize(0)).toBe(1);
+    expect(clampScreenshotBatchSize(99)).toBe(16);
+  });
+});
+
+describe("matchDraftToQueuePrior", () => {
+  const prior = {
+    id: 9,
+    recipient_phone: "01710000000",
+    amount_to_collect: 0,
+    status: "needs_review",
+  };
+
+  it("updates a needs-review row when the next batch fills in the price", () => {
+    expect(
+      matchDraftToQueuePrior(
+        { recipient_phone: "01710000000", amount_to_collect: 500 },
+        [prior],
+        new Set(),
+      ),
+    ).toEqual({ action: "update", priorId: 9 });
+  });
+
+  it("inserts a second order when the same phone has a different COD", () => {
+    expect(
+      matchDraftToQueuePrior(
+        { recipient_phone: "01710000000", amount_to_collect: 900 },
+        [{ ...prior, amount_to_collect: 500, status: "ready" }],
+        new Set(),
+      ),
+    ).toEqual({ action: "insert" });
+  });
+
+  it("skips a duplicate of an order already created in Pathao", () => {
+    expect(
+      matchDraftToQueuePrior(
+        { recipient_phone: "01710000000", amount_to_collect: 500 },
+        [{ ...prior, amount_to_collect: 500, status: "created" }],
+        new Set(),
+      ),
+    ).toEqual({
+      action: "skip",
+      warning: "Skipped a duplicate of an order already created in Pathao.",
+    });
+  });
+});
+
+describe("overlayPriorWithDraft", () => {
+  it("fills an empty address from the later batch", () => {
+    const merged = overlayPriorWithDraft(
+      {
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        recipient_address: "",
+        recipient_address_raw: "",
+        recipient_city: "",
+        recipient_zone: "",
+        recipient_area: "",
+        amount_to_collect: 0,
+        item_quantity: 1,
+        item_weight: 0.5,
+        item_desc: "",
+        special_instruction: "",
+        item_type: "parcel",
+        store_name: "Shazelle",
+        warnings: [],
+      },
+      normalizeExpectedOrder(
+        {
+          recipient_name: "Rahim",
+          recipient_phone: "01710000000",
+          recipient_address: "Hazipara, Thakurgaon",
+          amount_to_collect: 500,
+        },
+        { storeName: "Shazelle", itemType: "parcel", itemWeight: 0.5 },
+      ),
+    );
+    expect(merged.recipient_address).toContain("Hazipara");
+    expect(merged.amount_to_collect).toBe(500);
   });
 });

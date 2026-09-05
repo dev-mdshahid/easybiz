@@ -15,13 +15,17 @@ import {
 import {
   EXPECTED_ORDER_MAX_IMAGES,
   ITEM_TYPES,
+  clampScreenshotBatchSize,
   collapseExtractedOrders,
+  matchDraftToQueuePrior,
   merchantOrderId,
   normalizeExpectedOrder,
+  overlayPriorWithDraft,
   statusAfterEdit,
   type ExtractedOrderDraft,
   type ItemType,
   type ProductHint,
+  type QueuePriorOrder,
 } from "@/lib/expected-order";
 import { buildPathaoBulkCsv } from "@/lib/pathao-bulk-csv";
 import { alignCitiesToSource, explicitCityFromText } from "@/lib/pathao-address";
@@ -55,6 +59,7 @@ export type PublicOrderCreationSettings = {
   default_store_name: string;
   default_item_type: ItemType;
   default_item_weight: number;
+  screenshot_batch_size: number;
 };
 
 function maskApiKey(key: string): string {
@@ -108,6 +113,7 @@ function toPublic(row: BusinessSettings | null): PublicOrderCreationSettings {
     default_store_name: row?.default_store_name ?? "",
     default_item_type: asItemType(row?.default_item_type),
     default_item_weight: Number(row?.default_item_weight ?? 0.5) || 0.5,
+    screenshot_batch_size: clampScreenshotBatchSize(row?.screenshot_batch_size),
   };
 }
 
@@ -147,6 +153,9 @@ export async function saveOrderCreationSettings(
   if (!ITEM_TYPES.includes(itemType)) {
     return { ok: false, message: "Item type must be parcel or document." };
   }
+  const batchSize = clampScreenshotBatchSize(
+    String(formData.get("screenshot_batch_size") ?? EXPECTED_ORDER_MAX_IMAGES),
+  );
 
   const supabase = createAdminClient();
   const payload = {
@@ -158,6 +167,7 @@ export async function saveOrderCreationSettings(
     default_store_name: storeName,
     default_item_type: itemType,
     default_item_weight: weightRaw,
+    screenshot_batch_size: batchSize,
     updated_at: new Date().toISOString(),
   };
 
@@ -323,7 +333,7 @@ async function findDuplicateWarning(
 function commitPayload(
   normalized: ReturnType<typeof normalizeExpectedOrder>,
   extraction: Json,
-): Json {
+) {
   return {
     product_id: normalized.product_id,
     item_type: normalized.item_type,
@@ -343,6 +353,28 @@ function commitPayload(
     status: normalized.status,
     warnings: normalized.warnings,
     extraction,
+  };
+}
+
+function parseQueuePriorIds(formData: FormData): number[] {
+  const raw = String(formData.get("queue_prior_ids") ?? "").trim();
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(/[,\s]+/)
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+}
+
+function asQueuePrior(row: ExpectedOrder): QueuePriorOrder {
+  return {
+    id: row.id,
+    recipient_phone: row.recipient_phone,
+    amount_to_collect: Number(row.amount_to_collect) || 0,
+    status: row.status,
   };
 }
 
@@ -530,8 +562,68 @@ export async function extractExpectedOrders(
       draftsFromExtracted(collapseExtractedOrders(extracted.orders)),
     );
 
-    const payloads: Json[] = [];
+    const priorIds = parseQueuePriorIds(formData);
+    let priorRows: ExpectedOrder[] = [];
+    if (priorIds.length > 0) {
+      const { data: loaded, error: priorError } = await supabase
+        .from("expected_orders")
+        .select("*")
+        .eq("business_id", current.id)
+        .in("id", priorIds);
+      if (priorError) throw new Error(priorError.message);
+      priorRows = loaded ?? [];
+    }
+    const priorSummaries = priorRows.map(asQueuePrior);
+    const usedPriorIds = new Set<number>();
+    const inserts: Json[] = [];
+    const updates: Json[] = [];
+    const queueId = String(formData.get("queue_id") ?? "").trim();
+
     for (const order of polished) {
+      const extraction = (
+        queueId ? { ...order, queue_id: queueId } : order
+      ) as unknown as Json;
+      const decision = matchDraftToQueuePrior(order, priorSummaries, usedPriorIds);
+      if (decision.action === "skip") {
+        continue;
+      }
+      if (decision.action === "update") {
+        const prior = priorRows.find((row) => row.id === decision.priorId);
+        if (!prior) {
+          const normalized = normalizeExpectedOrder(order, defaults, products);
+          const duplicate = await findDuplicateWarning(
+            current.id,
+            normalized.recipient_phone,
+            normalized.amount_to_collect,
+          );
+          if (duplicate) normalized.warnings.push(duplicate);
+          inserts.push(commitPayload(normalized, extraction));
+          continue;
+        }
+        usedPriorIds.add(prior.id);
+        const incoming = normalizeExpectedOrder(order, defaults, products);
+        const merged = normalizeExpectedOrder(
+          overlayPriorWithDraft(prior, incoming),
+          defaults,
+          products,
+        );
+        const status = statusAfterEdit(merged.status, prior.status);
+        if (status === "created") continue;
+        const duplicate = await findDuplicateWarning(
+          current.id,
+          merged.recipient_phone,
+          merged.amount_to_collect,
+          prior.id,
+        );
+        if (duplicate) merged.warnings.push(duplicate);
+        updates.push({
+          id: prior.id,
+          ...commitPayload(merged, extraction),
+          status,
+        });
+        continue;
+      }
+
       const normalized = normalizeExpectedOrder(order, defaults, products);
       const duplicate = await findDuplicateWarning(
         current.id,
@@ -539,7 +631,7 @@ export async function extractExpectedOrders(
         normalized.amount_to_collect,
       );
       if (duplicate) normalized.warnings.push(duplicate);
-      payloads.push(commitPayload(normalized, order as unknown as Json));
+      inserts.push(commitPayload(normalized, extraction));
     }
 
     const { data: saved, error: commitError } = await supabase.rpc(
@@ -549,7 +641,8 @@ export async function extractExpectedOrders(
         p_intake_id: intake.id,
         p_model: extracted.model,
         p_raw: extracted.raw as Json,
-        p_orders: payloads,
+        p_orders: inserts,
+        p_updates: updates,
       },
     );
     if (commitError) {
@@ -557,21 +650,36 @@ export async function extractExpectedOrders(
     }
 
     let orders = Array.isArray(saved) ? saved : saved ? [saved] : [];
-    if (payloads.length > 0 && orders.length === 0) {
-      const { data: fallback, error: fallbackError } = await supabase
+    if ((inserts.length > 0 || updates.length > 0) && orders.length === 0) {
+      const updateIds = updates
+        .map((row) => Number((row as { id?: number }).id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+      const { data: insertedRows, error: insertLookupError } = await supabase
         .from("expected_orders")
         .select("*")
         .eq("business_id", current.id)
         .eq("intake_id", intake.id)
         .order("id", { ascending: true });
-      if (fallbackError) {
-        throw new Error(fallbackError.message);
+      if (insertLookupError) throw new Error(insertLookupError.message);
+      let updatedRows: ExpectedOrder[] = [];
+      if (updateIds.length > 0) {
+        const { data: loadedUpdates, error: updateLookupError } = await supabase
+          .from("expected_orders")
+          .select("*")
+          .eq("business_id", current.id)
+          .in("id", updateIds);
+        if (updateLookupError) throw new Error(updateLookupError.message);
+        updatedRows = loadedUpdates ?? [];
       }
-      orders = fallback ?? [];
+      const byId = new Map<number, ExpectedOrder>();
+      for (const row of [...(insertedRows ?? []), ...updatedRows]) {
+        byId.set(row.id, row);
+      }
+      orders = [...byId.values()];
     }
 
     revalidateExpected();
-    return { ok: true, orders, empty: payloads.length === 0 };
+    return { ok: true, orders, empty: polished.length === 0 };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Extraction failed.";

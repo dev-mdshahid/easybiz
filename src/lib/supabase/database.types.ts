@@ -303,6 +303,7 @@ export type Database = {
           default_item_type: string;
           default_item_weight: number;
           default_store_name: string;
+          screenshot_batch_size: number;
           pathao_access_token: string;
           pathao_client_id: string;
           pathao_client_secret: string;
@@ -326,6 +327,7 @@ export type Database = {
           default_item_type?: string;
           default_item_weight?: number;
           default_store_name?: string;
+          screenshot_batch_size?: number;
           pathao_access_token?: string;
           pathao_client_id?: string;
           pathao_client_secret?: string;
@@ -349,6 +351,7 @@ export type Database = {
           default_item_type?: string;
           default_item_weight?: number;
           default_store_name?: string;
+          screenshot_batch_size?: number;
           pathao_access_token?: string;
           pathao_client_id?: string;
           pathao_client_secret?: string;
@@ -641,6 +644,7 @@ export type Database = {
           p_model: string | null;
           p_raw: Json;
           p_orders: Json;
+          p_updates?: Json;
         };
         Returns: Database["public"]["Tables"]["expected_orders"]["Row"][];
       };

@@ -64,7 +64,10 @@ export default async function ExpectedOrdersPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <ExpectedOrderIntake hasApiKey={Boolean(settings?.hasApiKey)} />
+              <ExpectedOrderIntake
+                hasApiKey={Boolean(settings?.hasApiKey)}
+                batchSize={settings?.screenshot_batch_size ?? 16}
+              />
               <ManualExpectedOrderForm
                 defaultStoreName={settings?.default_store_name ?? ""}
                 defaultWeight={settings?.default_item_weight ?? 0.5}
