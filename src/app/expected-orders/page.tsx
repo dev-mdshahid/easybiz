@@ -58,8 +58,9 @@ export default async function ExpectedOrdersPage({
             <CardHeader>
               <CardTitle>From screenshots</CardTitle>
               <CardDescription>
-                Paste the conversation. Orders are saved immediately; fix
-                anything that still needs review before creating them in Pathao.
+                Paste or drop several screenshots at once. Distinct orders are
+                saved together; fix anything that still needs review before
+                creating them in Pathao.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">

@@ -13,7 +13,9 @@ import {
   type AiProvider,
 } from "@/lib/ai-providers";
 import {
+  EXPECTED_ORDER_MAX_IMAGES,
   ITEM_TYPES,
+  collapseExtractedOrders,
   merchantOrderId,
   normalizeExpectedOrder,
   statusAfterEdit,
@@ -30,7 +32,7 @@ import type {
   Json,
 } from "@/lib/supabase/database.types";
 
-const MAX_IMAGES = 8;
+const MAX_IMAGES = EXPECTED_ORDER_MAX_IMAGES;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -287,6 +289,7 @@ function draftsFromExtracted(orders: ExtractedAiOrder[]): ExtractedOrderDraft[] 
       recipient_address_raw: written,
       recipient_address: address,
       recipient_city: explicitCityFromText(address) || "",
+      source_image_indexes: order.source_image_indexes,
     };
   });
 }
@@ -315,6 +318,32 @@ async function findDuplicateWarning(
     return "Possible duplicate: same phone and COD in the last 48 hours.";
   }
   return null;
+}
+
+function commitPayload(
+  normalized: ReturnType<typeof normalizeExpectedOrder>,
+  extraction: Json,
+): Json {
+  return {
+    product_id: normalized.product_id,
+    item_type: normalized.item_type,
+    store_name: normalized.store_name,
+    recipient_name: normalized.recipient_name,
+    recipient_phone: normalized.recipient_phone,
+    recipient_address: normalized.recipient_address,
+    recipient_address_raw: normalized.recipient_address_raw,
+    recipient_city: normalized.recipient_city,
+    recipient_zone: normalized.recipient_zone,
+    recipient_area: normalized.recipient_area,
+    amount_to_collect: normalized.amount_to_collect,
+    item_quantity: normalized.item_quantity,
+    item_weight: normalized.item_weight,
+    item_desc: normalized.item_desc,
+    special_instruction: normalized.special_instruction,
+    status: normalized.status,
+    warnings: normalized.warnings,
+    extraction,
+  };
 }
 
 async function insertNormalizedOrder(options: {
@@ -496,21 +525,12 @@ export async function extractExpectedOrders(
       products,
     });
 
-    await supabase
-      .from("expected_order_intakes")
-      .update({
-        model: extracted.model,
-        raw_ai_response: extracted.raw as Json,
-        error_message: null,
-      })
-      .eq("id", intake.id);
-
     const polished = await polishDraftAddresses(
       settings,
-      draftsFromExtracted(extracted.orders),
+      draftsFromExtracted(collapseExtractedOrders(extracted.orders)),
     );
 
-    const saved: ExpectedOrder[] = [];
+    const payloads: Json[] = [];
     for (const order of polished) {
       const normalized = normalizeExpectedOrder(order, defaults, products);
       const duplicate = await findDuplicateWarning(
@@ -519,18 +539,39 @@ export async function extractExpectedOrders(
         normalized.amount_to_collect,
       );
       if (duplicate) normalized.warnings.push(duplicate);
-      saved.push(
-        await insertNormalizedOrder({
-          businessId: current.id,
-          intakeId: intake.id,
-          normalized,
-          extraction: order as unknown as Json,
-        }),
-      );
+      payloads.push(commitPayload(normalized, order as unknown as Json));
+    }
+
+    const { data: saved, error: commitError } = await supabase.rpc(
+      "commit_expected_order_intake",
+      {
+        p_business_id: current.id,
+        p_intake_id: intake.id,
+        p_model: extracted.model,
+        p_raw: extracted.raw as Json,
+        p_orders: payloads,
+      },
+    );
+    if (commitError) {
+      throw new Error(commitError.message);
+    }
+
+    let orders = Array.isArray(saved) ? saved : saved ? [saved] : [];
+    if (payloads.length > 0 && orders.length === 0) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from("expected_orders")
+        .select("*")
+        .eq("business_id", current.id)
+        .eq("intake_id", intake.id)
+        .order("id", { ascending: true });
+      if (fallbackError) {
+        throw new Error(fallbackError.message);
+      }
+      orders = fallback ?? [];
     }
 
     revalidateExpected();
-    return { ok: true, orders: saved, empty: saved.length === 0 };
+    return { ok: true, orders, empty: payloads.length === 0 };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Extraction failed.";

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { parseAiOrdersPayload } from "@/lib/ai-client";
 import {
+  collapseExtractedOrders,
   isValidBdMobile,
   merchantOrderId,
   normalizeExpectedOrder,
   normalizePhone,
   parseAmount,
   statusAfterEdit,
+  type ExtractedOrderFragment,
 } from "@/lib/expected-order";
 import { matchCity, matchZone, resolveLocation, locationCatalogForPrompt } from "@/lib/pathao-locations";
 import { buildPathaoBulkCsv, PATHAO_BULK_HEADERS } from "@/lib/pathao-bulk-csv";
@@ -251,5 +254,137 @@ describe("buildPathaoBulkCsv", () => {
     expect(lines[1]).toContain("Dhaka");
     expect(lines[1]).toContain("Uttara");
     expect(merchantOrderId(12)).toBe("EB-12");
+  });
+});
+
+function fragment(
+  override: Partial<ExtractedOrderFragment>,
+): ExtractedOrderFragment {
+  return {
+    recipient_name: null,
+    recipient_phone: null,
+    recipient_address: null,
+    recipient_address_as_written: null,
+    amount_to_collect: null,
+    item_quantity: null,
+    item_weight: null,
+    item_desc: null,
+    special_instruction: null,
+    item_type: null,
+    warnings: [],
+    source_image_indexes: [],
+    ...override,
+  };
+}
+
+describe("collapseExtractedOrders", () => {
+  it("merges split fragments that share a phone and one missing COD", () => {
+    const collapsed = collapseExtractedOrders([
+      fragment({
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        source_image_indexes: [4],
+      }),
+      fragment({
+        recipient_phone: "01710000000",
+        recipient_address: "Hazipara, Thakurgaon",
+        recipient_address_as_written: "Hazipara, Thakurgaon",
+        amount_to_collect: 500,
+        source_image_indexes: [5],
+      }),
+    ]);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0].recipient_name).toBe("Rahim");
+    expect(collapsed[0].recipient_address).toBe("Hazipara, Thakurgaon");
+    expect(collapsed[0].amount_to_collect).toBe(500);
+    expect(collapsed[0].source_image_indexes).toEqual([4, 5]);
+    expect(collapsed[0].warnings).toContain("Combined fields from multiple screenshots.");
+  });
+
+  it("keeps two orders when the same phone has different COD amounts", () => {
+    const collapsed = collapseExtractedOrders([
+      fragment({
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        amount_to_collect: 500,
+        source_image_indexes: [1],
+      }),
+      fragment({
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        amount_to_collect: 900,
+        item_desc: "Serum",
+        source_image_indexes: [2],
+      }),
+    ]);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed.map((row) => row.amount_to_collect)).toEqual([500, 900]);
+  });
+
+  it("collapses overlapping duplicates with the same phone and COD", () => {
+    const collapsed = collapseExtractedOrders([
+      fragment({
+        recipient_name: "Karim",
+        recipient_phone: "01820000000",
+        amount_to_collect: 1200,
+        recipient_address: "House 1, Uttara",
+        source_image_indexes: [1, 2],
+      }),
+      fragment({
+        recipient_phone: "01820000000",
+        amount_to_collect: 1200,
+        item_desc: "Cream",
+        source_image_indexes: [2],
+      }),
+    ]);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0].item_desc).toBe("Cream");
+    expect(collapsed[0].source_image_indexes).toEqual([1, 2]);
+  });
+
+  it("does not merge phoneless fragments and warns when they look related", () => {
+    const collapsed = collapseExtractedOrders([
+      fragment({
+        recipient_name: "Farzana",
+        recipient_address: "North Jahanpur",
+        source_image_indexes: [1],
+      }),
+      fragment({
+        recipient_name: "Farzana Islam",
+        amount_to_collect: 550,
+        source_image_indexes: [1, 2],
+      }),
+    ]);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[0].warnings).toContain(
+      "This may be part of the same order as another screenshot. Review before sending.",
+    );
+    expect(collapsed[1].warnings).toContain(
+      "This may be part of the same order as another screenshot. Review before sending.",
+    );
+  });
+});
+
+describe("parseAiOrdersPayload", () => {
+  it("round-trips source_image_indexes through toAiOrder", () => {
+    const orders = parseAiOrdersPayload({
+      orders: [
+        {
+          recipient_name: "Rahim",
+          recipient_phone: "01710000000",
+          recipient_address: "Hazipara",
+          recipient_address_as_written: "Hazipara",
+          amount_to_collect: 500,
+          item_quantity: null,
+          item_weight: null,
+          item_desc: null,
+          special_instruction: null,
+          item_type: null,
+          warnings: [],
+          source_image_indexes: [5, 4, 4, 0],
+        },
+      ],
+    });
+    expect(orders[0].source_image_indexes).toEqual([4, 5]);
   });
 });

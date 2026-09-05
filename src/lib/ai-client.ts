@@ -20,6 +20,7 @@ export type ExtractedAiOrder = {
   special_instruction: string | null;
   item_type: string | null;
   warnings: string[];
+  source_image_indexes: number[];
 };
 
 const orderSchema = z.object({
@@ -34,6 +35,7 @@ const orderSchema = z.object({
   special_instruction: z.string().nullable().optional(),
   item_type: z.string().nullable().optional(),
   warnings: z.array(z.string()).optional(),
+  source_image_indexes: z.array(z.number().int()).optional(),
 });
 
 const payloadSchema = z.object({
@@ -54,7 +56,15 @@ function buildSystemPrompt(products: ProductHint[]): string {
 
   return `You extract courier orders from merchant–customer chat screenshots (WhatsApp, Messenger, Facebook, Instagram). The chat may be Bangla, English, or mixed. The JSON you return must be English only.
 
-Return JSON only: {"orders":[...]}. One conversation can contain multiple orders. If nothing is an order, return {"orders":[]}.
+Return JSON only: {"orders":[...]}. Screenshots are numbered (Screenshot 1, Screenshot 2, …) and must be read together as one batch. If nothing is an order, return {"orders":[]}.
+
+Batch rules:
+- Several complete orders in one screenshot → several JSON objects.
+- Name or phone on one screenshot and address or price on another → one order with those fields combined. Set source_image_indexes to every screenshot that contributed.
+- Overlapping scroll of the same chat → one order, not two.
+- Different recipient phone, or a clearly different COD or item for the same person → separate orders.
+- Ignore greetings, stickers, and screenshots with no order data.
+- If a stitch is uncertain, still return one candidate and add a warnings note. Never leave two half-orders.
 
 Every text field must be clear, well-formatted English. No Bangla script. Transliterate names and places the customer actually wrote (রহিম → Rahim, উত্তরা → Uttara, ঠাকুরগাঁও → Thakurgaon, ঢাকা → Dhaka). Phone digits and amounts stay numbers.
 
@@ -67,7 +77,8 @@ Mandatory fields for each order (null if the chat does not contain them):
 
 Optional:
 - item_quantity, item_weight (kg), item_desc, special_instruction, item_type ("parcel" or "document")
-- warnings: short English notes about missing mandatory fields
+- warnings: short English notes about missing mandatory fields or an uncertain stitch
+- source_image_indexes: 1-based screenshot numbers this order came from (e.g. [4, 5] if split across Screenshot 4 and 5)
 
 Address rules (absolute):
 - Copy the places in the screenshot. Organize into a readable line. Do not add any new place. Do not drop any place they wrote.
@@ -99,7 +110,15 @@ function extractJsonObject(text: string): unknown {
   return JSON.parse(body.slice(start, end + 1)) as unknown;
 }
 
-function toAiOrder(row: z.infer<typeof orderSchema>): ExtractedAiOrder {
+function uniqueIndexes(values: number[] | undefined): number[] {
+  const next = new Set<number>();
+  for (const value of values ?? []) {
+    if (Number.isInteger(value) && value >= 1) next.add(value);
+  }
+  return [...next].sort((a, b) => a - b);
+}
+
+export function toAiOrder(row: z.infer<typeof orderSchema>): ExtractedAiOrder {
   return {
     recipient_name: row.recipient_name ?? null,
     recipient_phone: row.recipient_phone ?? null,
@@ -112,7 +131,23 @@ function toAiOrder(row: z.infer<typeof orderSchema>): ExtractedAiOrder {
     special_instruction: row.special_instruction ?? null,
     item_type: row.item_type ?? null,
     warnings: row.warnings ?? [],
+    source_image_indexes: uniqueIndexes(row.source_image_indexes),
   };
+}
+
+export function parseAiOrdersPayload(raw: unknown): ExtractedAiOrder[] {
+  const parsed = payloadSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error("The model returned orders in an unexpected shape.");
+  }
+  return parsed.data.orders.map(toAiOrder);
+}
+
+function isRetryableAiError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /429|500|502|503|504|timeout|timed out|rate limit|ECONNRESET|ENOTFOUND|network|fetch failed/i.test(
+    message,
+  );
 }
 
 export async function extractOrdersFromImages(options: {
@@ -142,14 +177,22 @@ export async function extractOrdersFromImages(options: {
     headers["X-OpenRouter-Title"] = "EasyBiz";
   }
 
-  const imageParts = options.images.map((image) => ({
-    type: "image_url" as const,
-    image_url: { url: image.dataUrl },
-  }));
+  const screenshotParts: { type: "text" | "image_url"; text?: string; image_url?: { url: string } }[] =
+    [];
+  options.images.forEach((image, index) => {
+    screenshotParts.push({
+      type: "text",
+      text: `Screenshot ${index + 1}:`,
+    });
+    screenshotParts.push({
+      type: "image_url",
+      image_url: { url: image.dataUrl },
+    });
+  });
 
   const userText = options.note?.trim()
-    ? `Merchant note:\n${options.note.trim()}\n\nExtract every order from the screenshots. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.`
-    : "Extract every order from the screenshots. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.";
+    ? `Merchant note:\n${options.note.trim()}\n\nExtract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.`
+    : "Extract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.";
 
   const body: Record<string, unknown> = {
     model,
@@ -158,7 +201,7 @@ export async function extractOrdersFromImages(options: {
       { role: "system", content: buildSystemPrompt(options.products) },
       {
         role: "user",
-        content: [{ type: "text", text: userText }, ...imageParts],
+        content: [{ type: "text", text: userText }, ...screenshotParts],
       },
     ],
     response_format: {
@@ -188,6 +231,7 @@ export async function extractOrdersFromImages(options: {
                   "special_instruction",
                   "item_type",
                   "warnings",
+                  "source_image_indexes",
                 ],
                 properties: {
                   recipient_name: { type: ["string", "null"] },
@@ -201,6 +245,7 @@ export async function extractOrdersFromImages(options: {
                   special_instruction: { type: ["string", "null"] },
                   item_type: { type: ["string", "null"] },
                   warnings: { type: "array", items: { type: "string" } },
+                  source_image_indexes: { type: "array", items: { type: "integer" } },
                 },
               },
             },
@@ -221,34 +266,38 @@ export async function extractOrdersFromImages(options: {
       choices?: { message?: { content?: string } }[];
     };
     if (!response.ok) {
-      throw new Error(json.error?.message || `AI request failed (${response.status})`);
+      const detail = json.error?.message || "AI request failed";
+      throw new Error(`${detail} (${response.status})`);
     }
     const content = json.choices?.[0]?.message?.content;
     if (!content) throw new Error("The model returned an empty response.");
     return extractJsonObject(content);
   }
 
-  let raw: unknown;
-  try {
-    raw = await call(body);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/response_format|json_schema|unrecognized|unsupported/i.test(message)) {
-      const fallback = { ...body };
-      delete fallback.response_format;
-      raw = await call(fallback);
-    } else {
+  async function requestOnce(): Promise<unknown> {
+    try {
+      return await call(body);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/response_format|json_schema|unrecognized|unsupported/i.test(message)) {
+        const fallback = { ...body };
+        delete fallback.response_format;
+        return await call(fallback);
+      }
       throw error;
     }
   }
 
-  const parsed = payloadSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error("The model returned orders in an unexpected shape.");
+  let raw: unknown;
+  try {
+    raw = await requestOnce();
+  } catch (error) {
+    if (!isRetryableAiError(error)) throw error;
+    raw = await requestOnce();
   }
 
   return {
-    orders: parsed.data.orders.map(toAiOrder),
+    orders: parseAiOrdersPayload(raw),
     raw,
     model,
   };

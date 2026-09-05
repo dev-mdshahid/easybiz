@@ -68,6 +68,8 @@ export type ProductHint = {
   selling_price: number | null;
 };
 
+export const EXPECTED_ORDER_MAX_IMAGES = 16;
+
 export type ExtractedOrderDraft = {
   recipient_name?: string | null;
   recipient_phone?: string | null;
@@ -84,6 +86,22 @@ export type ExtractedOrderDraft = {
   item_type?: string | null;
   store_name?: string | null;
   warnings?: string[] | null;
+  source_image_indexes?: number[] | null;
+};
+
+export type ExtractedOrderFragment = {
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  recipient_address: string | null;
+  recipient_address_as_written: string | null;
+  amount_to_collect: number | null;
+  item_quantity: number | null;
+  item_weight: number | null;
+  item_desc: string | null;
+  special_instruction: string | null;
+  item_type: string | null;
+  warnings: string[];
+  source_image_indexes: number[];
 };
 
 export type OrderDefaults = {
@@ -264,4 +282,139 @@ export function merchantOrderId(id: number): string {
 export function asWarningList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+const COMBINED_WARNING = "Combined fields from multiple screenshots.";
+const FRAGMENT_WARNING =
+  "This may be part of the same order as another screenshot. Review before sending.";
+
+function usablePhone(phone: string | null): string {
+  const normalized = normalizePhone(phone);
+  return isValidBdMobile(normalized) ? normalized : "";
+}
+
+function sameCod(left: number | null, right: number | null): boolean {
+  if (left == null || right == null) return true;
+  return left === right;
+}
+
+function similarName(left: string | null, right: string | null): boolean {
+  const a = (left ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const b = (right ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+function overlappingIndexes(left: number[], right: number[]): boolean {
+  if (left.length === 0 || right.length === 0) return false;
+  const other = new Set(right);
+  return left.some((index) => other.has(index));
+}
+
+function uniqueWarnings(values: string[]): string[] {
+  const next: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const trimmed = value.replace(/\s+/g, " ").trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    next.push(trimmed);
+  }
+  return next;
+}
+
+function uniqueIndexes(values: number[]): number[] {
+  return [...new Set(values.filter((value) => Number.isInteger(value) && value >= 1))].sort(
+    (a, b) => a - b,
+  );
+}
+
+function pickText(left: string | null, right: string | null): string | null {
+  const a = left?.replace(/\s+/g, " ").trim() || null;
+  const b = right?.replace(/\s+/g, " ").trim() || null;
+  return a || b;
+}
+
+function pickNumber(left: number | null, right: number | null): number | null {
+  return left != null && Number.isFinite(left) ? left : right;
+}
+
+function cloneFragment<T extends ExtractedOrderFragment>(order: T): T {
+  return {
+    ...order,
+    warnings: [...order.warnings],
+    source_image_indexes: [...order.source_image_indexes],
+  };
+}
+
+function mergeFragments<T extends ExtractedOrderFragment>(left: T, right: T): T {
+  return {
+    ...left,
+    recipient_name: pickText(left.recipient_name, right.recipient_name),
+    recipient_phone: pickText(left.recipient_phone, right.recipient_phone),
+    recipient_address: pickText(left.recipient_address, right.recipient_address),
+    recipient_address_as_written: pickText(
+      left.recipient_address_as_written,
+      right.recipient_address_as_written,
+    ),
+    amount_to_collect: pickNumber(left.amount_to_collect, right.amount_to_collect),
+    item_quantity: pickNumber(left.item_quantity, right.item_quantity),
+    item_weight: pickNumber(left.item_weight, right.item_weight),
+    item_desc: pickText(left.item_desc, right.item_desc),
+    special_instruction: pickText(left.special_instruction, right.special_instruction),
+    item_type: pickText(left.item_type, right.item_type),
+    warnings: uniqueWarnings([...left.warnings, ...right.warnings, COMBINED_WARNING]),
+    source_image_indexes: uniqueIndexes([
+      ...left.source_image_indexes,
+      ...right.source_image_indexes,
+    ]),
+  };
+}
+
+function warnPhonelessFragments<T extends ExtractedOrderFragment>(orders: T[]): T[] {
+  const next = orders.map(cloneFragment);
+  for (let i = 0; i < next.length; i += 1) {
+    if (usablePhone(next[i].recipient_phone)) continue;
+    for (let j = i + 1; j < next.length; j += 1) {
+      if (usablePhone(next[j].recipient_phone)) continue;
+      const similar = similarName(next[i].recipient_name, next[j].recipient_name);
+      const overlap = overlappingIndexes(
+        next[i].source_image_indexes,
+        next[j].source_image_indexes,
+      );
+      if (!similar && !overlap) continue;
+      next[i].warnings = uniqueWarnings([...next[i].warnings, FRAGMENT_WARNING]);
+      next[j].warnings = uniqueWarnings([...next[j].warnings, FRAGMENT_WARNING]);
+    }
+  }
+  return next;
+}
+
+export function collapseExtractedOrders<T extends ExtractedOrderFragment>(
+  orders: T[],
+): T[] {
+  const prepared = warnPhonelessFragments(orders);
+  const used = new Set<number>();
+  const collapsed: T[] = [];
+
+  for (let i = 0; i < prepared.length; i += 1) {
+    if (used.has(i)) continue;
+    let current = prepared[i];
+    const phone = usablePhone(current.recipient_phone);
+    if (!phone) {
+      collapsed.push(current);
+      continue;
+    }
+    for (let j = i + 1; j < prepared.length; j += 1) {
+      if (used.has(j)) continue;
+      const other = prepared[j];
+      if (usablePhone(other.recipient_phone) !== phone) continue;
+      if (!sameCod(current.amount_to_collect, other.amount_to_collect)) continue;
+      current = mergeFragments(current, other);
+      used.add(j);
+    }
+    collapsed.push(current);
+  }
+
+  return collapsed;
 }

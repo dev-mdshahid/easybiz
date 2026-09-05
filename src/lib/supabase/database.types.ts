@@ -634,6 +634,16 @@ export type Database = {
         Args: { p_business_id: number; p_from?: string; p_to?: string };
         Returns: Json;
       };
+      commit_expected_order_intake: {
+        Args: {
+          p_business_id: number;
+          p_intake_id: number;
+          p_model: string | null;
+          p_raw: Json;
+          p_orders: Json;
+        };
+        Returns: Database["public"]["Tables"]["expected_orders"]["Row"][];
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -8,8 +8,9 @@ import { extractExpectedOrders } from "@/app/expected-order-actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EXPECTED_ORDER_MAX_IMAGES } from "@/lib/expected-order";
 
-const MAX_IMAGES = 8;
+const MAX_IMAGES = EXPECTED_ORDER_MAX_IMAGES;
 
 type Preview = { id: string; file: File; url: string };
 
@@ -44,16 +45,26 @@ export function ExpectedOrderIntake({ hasApiKey }: { hasApiKey: boolean }) {
   const addFiles = useCallback((files: File[]) => {
     const images = files.filter((file) => file.type.startsWith("image/"));
     if (images.length === 0) return;
+    const room = MAX_IMAGES - previews.length;
+    if (images.length > room) {
+      toast.error(
+        room <= 0
+          ? `Remove a screenshot first. ${MAX_IMAGES} is the maximum per batch.`
+          : `Attach at most ${MAX_IMAGES} screenshots at a time. Extra files were not added.`,
+      );
+    }
+    if (room <= 0) return;
     setPreviews((current) => {
-      const room = MAX_IMAGES - current.length;
-      const next = images.slice(0, Math.max(0, room)).map((file) => ({
+      const available = MAX_IMAGES - current.length;
+      if (available <= 0) return current;
+      const next = images.slice(0, available).map((file) => ({
         id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
         url: URL.createObjectURL(file),
       }));
       return [...current, ...next];
     });
-  }, []);
+  }, [previews.length]);
 
   function clearPreviews() {
     setPreviews((current) => {
@@ -89,8 +100,12 @@ export function ExpectedOrderIntake({ hasApiKey }: { hasApiKey: boolean }) {
         }}
       >
         <p className="text-sm">
-          Paste a chat screenshot (Ctrl+V), drop files, or browse. Several
-          screenshots of the same conversation can go together.
+          Paste chat screenshots (Ctrl+V), drop files, or browse. All images in
+          a batch are read together: several orders can sit in one screenshot,
+          and one order can continue across the next.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {previews.length} / {MAX_IMAGES} screenshots
         </p>
         <div className="flex flex-wrap gap-2">
           {previews.map((item) => (
