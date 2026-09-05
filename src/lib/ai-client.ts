@@ -94,7 +94,7 @@ Address rules (absolute):
 Catalog may be used only for item_desc when the chat matches a product. Do not use catalog prices as the COD amount.
 Catalog:
 ${catalog}
-- Special instructions: English (call before delivery, evening only, landmarks they mentioned).
+- Special instructions: start with the customer's Facebook/Messenger display name from the chat header (the profile name at the top of the thread — not a numeric ID, and not the delivery recipient_name unless that is also the header name). Exact prefix: "Facebook ID: " then that name, then a period. Example: "Facebook ID: Rahim Ahmed." If there are other courier notes (call before delivery, evening only, landmarks), append them after that sentence. If the screenshot is not Facebook/Messenger or no profile name is visible, omit "Facebook ID:" — do not invent a name.
 - Ignore greetings, stickers, and unrelated chat.`;
 }
 
@@ -191,8 +191,8 @@ export async function extractOrdersFromImages(options: {
   });
 
   const userText = options.note?.trim()
-    ? `Merchant note:\n${options.note.trim()}\n\nExtract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.`
-    : "Extract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.";
+    ? `Merchant note:\n${options.note.trim()}\n\nExtract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone. Put the Facebook/Messenger header name in special_instruction as "Facebook ID: {name}."`
+    : 'Extract every distinct order from these numbered screenshots together. Stitch an order split across screenshots into one object. Do not duplicate overlapping chat. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone. Put the Facebook/Messenger header name in special_instruction as "Facebook ID: {name}."';
 
   const body: Record<string, unknown> = {
     model,
@@ -335,7 +335,8 @@ For each order:
 - recipient_name: proper English name, Title Case (রহিম → Rahim, মোঃ করিম → Md. Karim).
 - recipient_address: rephrase into one clean English line. Keep every place already in the text, including a trailing city they wrote (Sylhet, Dhaka, Thakurgaon). Reorder, commas, spelling, and expand abbreviations already present (H-1 → House 1, CTG → Chattogram). Transliterate Bangla place names that are already there (উত্তরা → Uttara).
 - recipient_city: translate the city field if it already has a value. If the city field is empty, leave it empty — do not fill it from a thana, zone, or geography (Chawkbazar is not Chittagong).
-- item_desc and special_instruction: natural English of the same meaning.
+- item_desc: natural English of the same meaning.
+- special_instruction: keep the "Facebook ID: {name}." sentence first and unchanged except transliterating the name into English letters. Then rewrite any remaining courier notes into natural English. Do not drop the Facebook ID line if it is already in the input.
 - warnings: short English notes.
 
 Rules:
