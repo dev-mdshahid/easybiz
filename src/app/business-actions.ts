@@ -3,21 +3,14 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { requireUserId } from "@/app/auth-actions";
+import {
+  BUSINESS_COOKIE,
+  businessCookieOptions,
+} from "@/lib/business-cookie";
 import { parseOpeningBalanceFields } from "@/lib/opening-balance";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { Business } from "@/lib/supabase/database.types";
-
-const BUSINESS_COOKIE = "easybiz_business_id";
-
-function cookieOptions() {
-  return {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  };
-}
 
 function revalidateBooks() {
   revalidatePath("/");
@@ -31,7 +24,7 @@ function revalidateBooks() {
 }
 
 export async function listBusinesses(): Promise<Business[]> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("businesses")
     .select("*")
@@ -57,6 +50,7 @@ export async function getBusinessContext(): Promise<{
 }
 
 export async function requireBusiness(): Promise<Business> {
+  await requireUserId();
   const { current } = await getBusinessContext();
   if (!current) {
     throw new Error("Create a business before continuing.");
@@ -70,7 +64,7 @@ export async function setCurrentBusiness(id: number) {
   if (!match) throw new Error("That business does not exist.");
 
   const store = await cookies();
-  store.set(BUSINESS_COOKIE, String(match.id), cookieOptions());
+  store.set(BUSINESS_COOKIE, String(match.id), businessCookieOptions());
   revalidateBooks();
 }
 
@@ -100,11 +94,13 @@ export async function createBusiness(
     return { ok: false, message: openingStock.message };
   }
 
-  const supabase = createAdminClient();
+  const ownerId = await requireUserId();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("businesses")
     .insert({
       name,
+      owner_id: ownerId,
       ...(opening.skipped
         ? {}
         : {
@@ -126,7 +122,7 @@ export async function createBusiness(
   }
 
   const store = await cookies();
-  store.set(BUSINESS_COOKIE, String(data.id), cookieOptions());
+  store.set(BUSINESS_COOKIE, String(data.id), businessCookieOptions());
   revalidateBooks();
   return { ok: true };
 }
@@ -134,7 +130,7 @@ export async function createBusiness(
 export async function deleteBusiness(
   id: number,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("businesses")
     .select("id")
@@ -162,9 +158,9 @@ export async function deleteBusiness(
   if (!cookieStillValid) {
     const next = remaining[0];
     if (next) {
-      store.set(BUSINESS_COOKIE, String(next.id), cookieOptions());
+      store.set(BUSINESS_COOKIE, String(next.id), businessCookieOptions());
     } else {
-      store.set(BUSINESS_COOKIE, "", { ...cookieOptions(), maxAge: 0 });
+      store.set(BUSINESS_COOKIE, "", { ...businessCookieOptions(), maxAge: 0 });
     }
   }
 
@@ -192,7 +188,7 @@ export async function updateOpeningBalance(
     return { ok: false, message: "Enter an opening amount and date." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("businesses")
     .update({
@@ -229,7 +225,7 @@ export async function updateOpeningStock(
     return { ok: false, message: "Enter an opening stock amount and date." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("businesses")
     .update({

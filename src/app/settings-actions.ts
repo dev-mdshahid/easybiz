@@ -15,7 +15,7 @@ import {
 } from "@/lib/cost-recipe";
 import { parseMoneyAmount } from "@/lib/opening-balance";
 import { lineFromRow } from "@/lib/recipe-rows";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient, type UserClient } from "@/lib/supabase/server";
 import type { Product, ProductCostLine } from "@/lib/supabase/database.types";
 
 function revalidateSettings() {
@@ -27,7 +27,7 @@ function revalidateSettings() {
 export type ProductWithLines = Product & { lines: ProductCostLine[] };
 
 async function seedBuiltinLines(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: UserClient,
   productId: number,
   productCostPercent: number | null,
 ) {
@@ -50,7 +50,7 @@ async function seedBuiltinLines(
 export async function ensureDefaultProduct(): Promise<ProductWithLines | null> {
   const { current } = await getBusinessContext();
   if (!current) return null;
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: existing, error: listError } = await supabase
     .from("products")
@@ -126,7 +126,7 @@ export async function listProductsWithLines(): Promise<ProductWithLines[]> {
   const { current } = await getBusinessContext();
   if (!current) return [];
   await ensureDefaultProduct();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: products, error } = await supabase
     .from("products")
     .select("*")
@@ -164,7 +164,7 @@ export async function addProduct(
   if (!name) return { ok: false, message: "Enter an item name." };
 
   const defaults = await ensureDefaultProduct();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: created, error } = await supabase
     .from("products")
     .insert({
@@ -212,7 +212,7 @@ export async function setDefaultProduct(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { current } = await getBusinessContext();
   if (!current) return { ok: false, message: "Create a business before continuing." };
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: match } = await supabase
     .from("products")
     .select("id")
@@ -243,7 +243,7 @@ export async function deleteProduct(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { current } = await getBusinessContext();
   if (!current) return { ok: false, message: "Create a business before continuing." };
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: match } = await supabase
     .from("products")
     .select("id, is_default")
@@ -347,7 +347,7 @@ export async function saveProductRecipe(
   const lines = parseLinePayload(parsedLines);
   if ("error" in lines) return { ok: false, message: lines.error };
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: product } = await supabase
     .from("products")
     .select("id")

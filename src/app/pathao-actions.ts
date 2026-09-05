@@ -15,7 +15,11 @@ import {
   type PathaoStore,
   type PathaoTokens,
 } from "@/lib/pathao-api";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  loadOwnedBusinessSettings,
+  persistOwnedBusinessSettings,
+} from "@/lib/owned-settings";
+import { createClient } from "@/lib/supabase/server";
 import type { BusinessSettings } from "@/lib/supabase/database.types";
 
 function revalidatePathao() {
@@ -76,14 +80,7 @@ function toPublic(row: BusinessSettings | null): PublicPathaoSettings {
 }
 
 async function loadSettingsRow(businessId: number): Promise<BusinessSettings | null> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("business_settings")
-    .select("*")
-    .eq("business_id", businessId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
+  return loadOwnedBusinessSettings(businessId);
 }
 
 function credentialsFrom(
@@ -118,16 +115,7 @@ async function persistPathao(
   businessId: number,
   patch: Record<string, unknown>,
 ): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase.from("business_settings").upsert(
-    {
-      business_id: businessId,
-      ...patch,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "business_id" },
-  );
-  if (error) throw new Error(error.message);
+  await persistOwnedBusinessSettings(businessId, patch);
 }
 
 export async function getPathaoSettings(): Promise<PublicPathaoSettings | null> {
@@ -293,7 +281,7 @@ export async function createExpectedOrdersInPathao(ids: number[]): Promise<
   }
   const deliveryType = settings?.pathao_delivery_type === 12 ? 12 : 48;
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("expected_orders")
     .select("*")

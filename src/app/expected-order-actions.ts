@@ -29,7 +29,8 @@ import {
 } from "@/lib/expected-order";
 import { buildPathaoBulkCsv } from "@/lib/pathao-bulk-csv";
 import { alignCitiesToSource, explicitCityFromText } from "@/lib/pathao-address";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { loadOwnedBusinessSettings, persistOwnedBusinessSettings } from "@/lib/owned-settings";
+import { createClient } from "@/lib/supabase/server";
 import type {
   BusinessSettings,
   ExpectedOrder,
@@ -88,14 +89,7 @@ function defaultsFromSettings(row: BusinessSettings | null): {
 async function loadSettingsRow(
   businessId: number,
 ): Promise<BusinessSettings | null> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("business_settings")
-    .select("*")
-    .eq("business_id", businessId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
+  return loadOwnedBusinessSettings(businessId);
 }
 
 function toPublic(row: BusinessSettings | null): PublicOrderCreationSettings {
@@ -157,30 +151,29 @@ export async function saveOrderCreationSettings(
     String(formData.get("screenshot_batch_size") ?? EXPECTED_ORDER_MAX_IMAGES),
   );
 
-  const supabase = createAdminClient();
-  const payload = {
-    business_id: current.id,
-    ai_api_key: apiKey,
-    ai_provider: provider,
-    ai_base_url: spec.baseUrl,
-    ai_model: model,
-    default_store_name: storeName,
-    default_item_type: itemType,
-    default_item_weight: weightRaw,
-    screenshot_batch_size: batchSize,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase.from("business_settings").upsert(payload, {
-    onConflict: "business_id",
-  });
-  if (error) return { ok: false, message: error.message };
+  try {
+    await persistOwnedBusinessSettings(current.id, {
+      ai_api_key: apiKey,
+      ai_provider: provider,
+      ai_base_url: spec.baseUrl,
+      ai_model: model,
+      default_store_name: storeName,
+      default_item_type: itemType,
+      default_item_weight: weightRaw,
+      screenshot_batch_size: batchSize,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not save settings.",
+    };
+  }
   revalidateExpected();
   return { ok: true };
 }
 
 async function loadProducts(businessId: number): Promise<ProductHint[]> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
     .select("id, name, selling_price")
@@ -312,7 +305,7 @@ async function findDuplicateWarning(
 ): Promise<string | null> {
   if (!phone) return null;
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   let query = supabase
     .from("expected_orders")
     .select("id")
@@ -384,7 +377,7 @@ async function insertNormalizedOrder(options: {
   normalized: ReturnType<typeof normalizeExpectedOrder>;
   extraction: Json | null;
 }): Promise<ExpectedOrder> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("expected_orders")
     .insert({
@@ -436,7 +429,7 @@ export async function listExpectedOrders(params?: {
 }): Promise<ExpectedOrder[]> {
   const { current } = await getBusinessContext();
   if (!current) return [];
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   let query = supabase
     .from("expected_orders")
     .select("*")
@@ -527,7 +520,7 @@ export async function extractExpectedOrders(
   const note = String(formData.get("note") ?? "").trim() || null;
   const products = await loadProducts(current.id);
   const defaults = defaultsFromSettings(settings);
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: intake, error: intakeError } = await supabase
     .from("expected_order_intakes")
@@ -735,7 +728,7 @@ export async function updateExpectedOrder(
     return { ok: false, message: "That order does not exist." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("expected_orders")
     .select("*")
@@ -808,7 +801,7 @@ export async function discardExpectedOrder(
   if (!current) {
     return { ok: false, message: "Create a business before continuing." };
   }
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("expected_orders")
     .update({
@@ -844,7 +837,7 @@ export async function exportExpectedOrdersCsv(
     return { ok: false, message: "Select at least one order to export." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("expected_orders")
     .select("*")

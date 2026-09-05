@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ClipboardList,
   LayoutDashboard,
+  LogOut,
   Package,
   Receipt,
   Settings,
@@ -13,10 +14,13 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { signOut } from "@/app/auth-actions";
 import { BusinessSwitcher } from "@/components/business-switcher";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -41,9 +45,11 @@ const items = [
 export function AppSidebar({
   businesses,
   current,
+  email,
 }: {
   businesses: Business[];
   current: Business | null;
+  email: string;
 }) {
   const pathname = usePathname();
 
@@ -79,6 +85,18 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarSeparator />
+      <SidebarFooter className="gap-2 px-3 pb-4">
+        <p className="truncate px-1 text-xs text-muted-foreground" title={email}>
+          {email}
+        </p>
+        <form action={signOut}>
+          <Button type="submit" variant="outline" className="h-8 w-full justify-start px-2 text-sm">
+            <LogOut className="size-3.5" />
+            Log out
+          </Button>
+        </form>
+      </SidebarFooter>
     </Sidebar>
   );
 }

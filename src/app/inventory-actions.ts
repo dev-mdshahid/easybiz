@@ -2,7 +2,7 @@
 
 import { getBusinessContext } from "@/app/business-actions";
 import { parseInventoryMovement } from "@/lib/inventory";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { InventoryMovement } from "@/lib/supabase/database.types";
 import { revalidatePath } from "next/cache";
 
@@ -15,7 +15,7 @@ function revalidateInventory() {
 export async function listInventoryMovements(): Promise<InventoryMovement[]> {
   const { current } = await getBusinessContext();
   if (!current) return [];
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("inventory_movements")
     .select("*")
@@ -42,7 +42,7 @@ export async function addInventoryMovement(
   );
   if (!parsed.ok) return parsed;
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("inventory_movements").insert({
     business_id: current.id,
     kind: parsed.kind,
@@ -64,7 +64,7 @@ export async function deleteInventoryMovement(
     return { ok: false, message: "Create a business before continuing." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("inventory_movements")
     .select("id")

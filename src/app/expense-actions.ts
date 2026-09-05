@@ -5,7 +5,7 @@ import { parseExpense } from "@/lib/expense";
 import { toNumber } from "@/lib/money";
 import { roundMoney } from "@/lib/cost-recipe";
 import { dhakaYmd } from "@/lib/time";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { Expense } from "@/lib/supabase/database.types";
 import { revalidatePath } from "next/cache";
 
@@ -18,7 +18,7 @@ function revalidateExpenses() {
 export async function listExpenses(): Promise<Expense[]> {
   const { current } = await getBusinessContext();
   if (!current) return [];
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("expenses")
     .select("*")
@@ -35,7 +35,7 @@ export async function sumExpenses(
 ): Promise<number> {
   const { current } = await getBusinessContext();
   if (!current) return 0;
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   let query = supabase
     .from("expenses")
     .select("amount")
@@ -66,7 +66,7 @@ export async function addExpense(
   );
   if (!parsed.ok) return parsed;
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("expenses").insert({
     business_id: current.id,
     amount: parsed.amount,
@@ -101,7 +101,7 @@ export async function updateExpense(
   );
   if (!parsed.ok) return parsed;
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("expenses")
     .select("id")
@@ -138,7 +138,7 @@ export async function deleteExpense(
     return { ok: false, message: "Create a business before continuing." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("expenses")
     .select("id")

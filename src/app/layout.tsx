@@ -1,10 +1,8 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { getBusinessContext } from "@/app/business-actions";
-import { AppSidebar } from "@/components/app-sidebar";
 import { Providers } from "@/components/providers";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import "./globals.css";
 
@@ -23,9 +21,7 @@ export const metadata: Metadata = {
   description: "Track Pathao payouts, fees, and net profit across businesses.",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const { businesses, current } = await getBusinessContext();
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
@@ -36,20 +32,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         suppressHydrationWarning
         className="min-h-full bg-background font-sans text-foreground"
       >
-        <Providers>
-          <SidebarProvider>
-            <AppSidebar businesses={businesses} current={current} />
-            <SidebarInset>
-              <header className="flex h-14 items-center gap-2 border-b px-4">
-                <SidebarTrigger />
-                <span className="text-sm text-muted-foreground">
-                  {current ? current.name : "EasyBiz"}
-                </span>
-              </header>
-              <div className="flex-1 p-4 md:p-6">{children}</div>
-            </SidebarInset>
-          </SidebarProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

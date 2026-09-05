@@ -22,6 +22,7 @@ export type Database = {
           opening_stock: number | null;
           opening_stock_on: string | null;
           inventory_cost_ratio: number | null;
+          owner_id: string | null;
         };
         Insert: {
           created_at?: string;
@@ -32,6 +33,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_on?: string | null;
           inventory_cost_ratio?: number | null;
+          owner_id?: string | null;
         };
         Update: {
           created_at?: string;
@@ -42,6 +44,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_on?: string | null;
           inventory_cost_ratio?: number | null;
+          owner_id?: string | null;
         };
         Relationships: [];
       };

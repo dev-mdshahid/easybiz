@@ -15,7 +15,7 @@ import { dhakaYmd } from "@/lib/time";
 import { getBusinessContext } from "@/app/business-actions";
 import { sumExpenses } from "@/app/expense-actions";
 import { loadDefaultCostLines } from "@/app/settings-actions";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { CsvUpload, PathaoInvoice } from "@/lib/supabase/database.types";
 
 const UPSERT_BATCH = 500;
@@ -133,7 +133,7 @@ function asCashPosition(value: unknown): CashPosition {
 export async function getCashPosition(): Promise<CashPosition> {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyCashPosition();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_cash_position", {
     p_business_id: business.id,
   });
@@ -232,7 +232,7 @@ async function listDeliveries(
   from?: string | null,
   to?: string | null,
 ): Promise<DeliverySlice[]> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const pageSize = 1000;
   const rows: DeliverySlice[] = [];
   let offset = 0;
@@ -266,7 +266,7 @@ async function listDeliveries(
 export async function getStockPosition(): Promise<StockPosition> {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyStockPosition();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_stock_position", {
     p_business_id: business.id,
   });
@@ -315,7 +315,7 @@ export async function getStockPosition(): Promise<StockPosition> {
 export async function getDashboardStats(from?: string | null, to?: string | null) {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyStats();
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_dashboard_stats", {
     p_business_id: business.id,
     p_from: from || undefined,
@@ -358,7 +358,7 @@ export async function getDashboardStats(from?: string | null, to?: string | null
 export async function listUploads(): Promise<CsvUpload[]> {
   const { current: business } = await getBusinessContext();
   if (!business) return [];
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("csv_uploads")
     .select("*")
@@ -394,7 +394,7 @@ export async function listInvoices(params: {
   if (!business) {
     return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
   }
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   let query = supabase
     .from("pathao_invoices_current")
@@ -458,7 +458,7 @@ export async function importPathaoCsv(formData: FormData): Promise<ImportResult>
   if (!business) {
     return { ok: false, message: "Create a business before uploading." };
   }
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: upload, error: uploadError } = await supabase
     .from("csv_uploads")
@@ -600,7 +600,7 @@ export async function deleteCsvUpload(uploadId: number): Promise<DeleteUploadRes
     return { ok: false, message: "Create a business before continuing." };
   }
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("delete_csv_upload", {
     p_upload_id: uploadId,
     p_business_id: business.id,
