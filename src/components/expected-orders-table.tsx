@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -8,9 +9,11 @@ import {
   exportExpectedOrdersCsv,
   updateExpectedOrder,
 } from "@/app/expected-order-actions";
+import { createExpectedOrdersInPathao } from "@/app/pathao-actions";
 import { ExpectedOrderFields } from "@/components/expected-order-fields";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +47,8 @@ function statusLabel(status: string): string {
   if (status === "needs_review") return "Needs review";
   if (status === "ready") return "Ready";
   if (status === "exported") return "Exported";
+  if (status === "created") return "Created";
+  if (status === "failed") return "Failed";
   if (status === "discarded") return "Discarded";
   return status;
 }
@@ -51,9 +56,9 @@ function statusLabel(status: string): string {
 function statusVariant(
   status: string,
 ): "secondary" | "default" | "outline" | "destructive" {
-  if (status === "ready") return "default";
+  if (status === "ready" || status === "created") return "default";
   if (status === "exported") return "outline";
-  if (status === "discarded") return "destructive";
+  if (status === "discarded" || status === "failed") return "destructive";
   return "secondary";
 }
 
@@ -67,7 +72,13 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
+export function ExpectedOrdersTable({
+  rows,
+  pathaoConnected,
+}: {
+  rows: ExpectedOrder[];
+  pathaoConnected: boolean;
+}) {
   const [selected, setSelected] = useState<number[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -86,8 +97,55 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
+        {pathaoConnected ? (
+          <Button
+            type="button"
+            disabled={pending || selected.length === 0}
+            onClick={() => {
+              startTransition(async () => {
+                const result = await createExpectedOrdersInPathao(selected);
+                if (!result.ok) {
+                  toast.error(result.message);
+                  return;
+                }
+                setSelected([]);
+                const parts = [
+                  result.createdCount > 0
+                    ? `Created ${result.createdCount} in Pathao`
+                    : null,
+                  result.failedCount > 0
+                    ? `${result.failedCount} failed`
+                    : null,
+                  result.skippedCount > 0
+                    ? `skipped ${result.skippedCount}`
+                    : null,
+                ].filter(Boolean);
+                if (result.failedCount > 0 && result.createdCount === 0) {
+                  toast.error(parts.join(". ") || "Pathao create failed.");
+                } else {
+                  toast.success(parts.join(". ") || "No orders created.");
+                }
+                if (result.failures[0]) {
+                  toast.error(
+                    `${result.failures[0].merchantOrderId}: ${result.failures[0].message}`,
+                  );
+                }
+              });
+            }}
+          >
+            {pending ? "Creating…" : "Create orders in Pathao"}
+          </Button>
+        ) : (
+          <Link
+            href="/carriers"
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Connect Pathao to create orders
+          </Link>
+        )}
         <Button
           type="button"
+          variant="outline"
           disabled={pending || selected.length === 0}
           onClick={() => {
             startTransition(async () => {
@@ -100,7 +158,7 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
               setSelected([]);
               const extra =
                 result.skippedCount > 0
-                  ? ` Skipped ${result.skippedCount} that still need review.`
+                  ? ` Skipped ${result.skippedCount} that cannot export.`
                   : "";
               toast.success(
                 `Exported ${result.exportedCount} order${result.exportedCount === 1 ? "" : "s"} for Pathao.${extra}`,
@@ -111,8 +169,8 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
           {pending ? "Exporting…" : "Export selected CSV"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          Ready and previously exported rows can be uploaded in Pathao Merchant
-          → Bulk Order. Rows that need review are skipped.
+          Ready, exported, and failed rows can be created in Pathao. CSV is a
+          backup for Merchant bulk upload.
         </p>
       </div>
       <Table>
@@ -132,6 +190,7 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
             <TableHead>Merchant ID</TableHead>
             <TableHead>Recipient</TableHead>
             <TableHead>Location</TableHead>
+            <TableHead>Consignment</TableHead>
             <TableHead className="text-right">COD</TableHead>
             <TableHead>Status</TableHead>
             <TableHead />
@@ -182,6 +241,18 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
                     </span>
                   </div>
                 </TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-mono text-xs">
+                      {row.pathao_consignment_id || "—"}
+                    </span>
+                    {row.status === "failed" && row.pathao_error ? (
+                      <span className="max-w-48 truncate text-xs text-destructive">
+                        {row.pathao_error}
+                      </span>
+                    ) : null}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatBdt(toNumber(row.amount_to_collect))}
                 </TableCell>
@@ -200,7 +271,9 @@ export function ExpectedOrdersTable({ rows }: { rows: ExpectedOrder[] }) {
                 <TableCell className="text-right">
                   {row.status !== "discarded" ? (
                     <div className="flex justify-end gap-1">
-                      <EditExpectedOrderButton row={row} />
+                      {row.status !== "created" && !row.pathao_consignment_id ? (
+                        <EditExpectedOrderButton row={row} />
+                      ) : null}
                       <DiscardExpectedOrderButton id={row.id} />
                     </div>
                   ) : null}
@@ -261,8 +334,10 @@ function EditExpectedOrderButton({ row }: { row: ExpectedOrder }) {
               <DialogHeader>
                 <DialogTitle>Edit expected order</DialogTitle>
                 <DialogDescription>
-                  City and zone must match Pathao names (for example Dhaka /
-                  Uttara) or the row stays in review and will not export.
+                  Name, 11-digit phone, address, city, and price are required.
+                  Type the city if it is missing — it is added to the address.
+                  Pathao still auto-detects city from that address; city_id is
+                  not sent.
                 </DialogDescription>
               </DialogHeader>
               {warnings.length > 0 ? (
@@ -280,6 +355,7 @@ function EditExpectedOrderButton({ row }: { row: ExpectedOrder }) {
                   recipient_name: row.recipient_name,
                   recipient_phone: row.recipient_phone,
                   recipient_address: row.recipient_address,
+                  recipient_address_raw: row.recipient_address_raw,
                   recipient_city: row.recipient_city,
                   recipient_zone: row.recipient_zone,
                   recipient_area: row.recipient_area,

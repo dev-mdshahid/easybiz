@@ -7,6 +7,7 @@ export type ExpectedOrderFieldValues = {
   recipient_name?: string;
   recipient_phone?: string;
   recipient_address?: string;
+  recipient_address_raw?: string;
   recipient_city?: string;
   recipient_zone?: string;
   recipient_area?: string;
@@ -51,12 +52,23 @@ export function ExpectedOrderFields({
         />
       </div>
       <div className="grid gap-1.5 sm:col-span-2">
-        <Label htmlFor={`${idPrefix}-address`}>Address</Label>
+        <Label htmlFor={`${idPrefix}-address`}>Delivery address</Label>
         <Textarea
           id={`${idPrefix}-address`}
           name="recipient_address"
           defaultValue={values?.recipient_address}
           required
+        />
+        {values?.recipient_address_raw &&
+        values.recipient_address_raw !== values.recipient_address ? (
+          <p className="text-xs text-muted-foreground">
+            Original from chat: {values.recipient_address_raw}
+          </p>
+        ) : null}
+        <input
+          type="hidden"
+          name="recipient_address_raw"
+          value={values?.recipient_address_raw ?? ""}
         />
       </div>
       <div className="grid gap-1.5">
@@ -65,18 +77,20 @@ export function ExpectedOrderFields({
           id={`${idPrefix}-city`}
           name="recipient_city"
           defaultValue={values?.recipient_city}
-          placeholder="Dhaka"
-          required
+          placeholder="Type the city/district the customer named"
         />
+        <p className="text-xs text-muted-foreground">
+          Required. Typed here only if it is missing from the address — it is
+          appended to the address, not sent as Pathao city_id.
+        </p>
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor={`${idPrefix}-zone`}>Zone</Label>
+        <Label htmlFor={`${idPrefix}-zone`}>Zone (optional, CSV only)</Label>
         <Input
           id={`${idPrefix}-zone`}
           name="recipient_zone"
           defaultValue={values?.recipient_zone}
-          placeholder="Uttara"
-          required
+          placeholder="Leave blank — Pathao auto-address"
         />
       </div>
       <div className="grid gap-1.5">

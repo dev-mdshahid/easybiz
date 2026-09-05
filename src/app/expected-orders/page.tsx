@@ -3,6 +3,7 @@ import {
   getOrderCreationSettings,
   listExpectedOrders,
 } from "@/app/expected-order-actions";
+import { getPathaoSettings } from "@/app/pathao-actions";
 import { ExpectedOrderIntake } from "@/components/expected-order-intake";
 import { ExpectedOrdersFilters } from "@/components/expected-orders-filters";
 import { ExpectedOrdersTable } from "@/components/expected-orders-table";
@@ -23,9 +24,10 @@ export default async function ExpectedOrdersPage({
   const params = await searchParams;
   const q = params.q ?? "";
   const status = params.status ?? "all";
-  const [{ current }, settings, rows] = await Promise.all([
+  const [{ current }, settings, pathao, rows] = await Promise.all([
     getBusinessContext(),
     getOrderCreationSettings(),
+    getPathaoSettings(),
     listExpectedOrders({ q, status }),
   ]);
 
@@ -36,8 +38,8 @@ export default async function ExpectedOrdersPage({
           Expected orders
         </h1>
         <p className="text-sm text-muted-foreground">
-          Build Pathao bulk orders from customer chat screenshots. These are
-          not paid invoices — they do not change cash, stock, or profit.
+          Build Pathao orders from customer chat screenshots. These are not paid
+          invoices — they do not change cash, stock, or profit.
         </p>
       </div>
 
@@ -57,7 +59,7 @@ export default async function ExpectedOrdersPage({
               <CardTitle>From screenshots</CardTitle>
               <CardDescription>
                 Paste the conversation. Orders are saved immediately; fix
-                anything that still needs review before exporting the CSV.
+                anything that still needs review before creating them in Pathao.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -74,13 +76,16 @@ export default async function ExpectedOrdersPage({
             <CardHeader>
               <CardTitle>Saved</CardTitle>
               <CardDescription>
-                Export ready rows and upload the file in Pathao Merchant → New
-                Delivery → Bulk Order.
+                Select ready rows and create them in Pathao. CSV export remains
+                as a backup for Merchant bulk upload.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <ExpectedOrdersFilters q={q} status={status} />
-              <ExpectedOrdersTable rows={rows} />
+              <ExpectedOrdersTable
+                rows={rows}
+                pathaoConnected={Boolean(pathao?.connected)}
+              />
             </CardContent>
           </Card>
         </>

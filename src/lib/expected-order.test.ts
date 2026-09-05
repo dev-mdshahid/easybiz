@@ -77,6 +77,105 @@ describe("normalizeExpectedOrder", () => {
     expect(row.store_name).toBe("Shazelle");
     expect(row.item_weight).toBe(0.5);
     expect(row.item_quantity).toBe(1);
+    expect(row.recipient_address).toBe("House 1, Road 1, Sector 6, Uttara, Dhaka");
+    expect(row.recipient_city).toBe("Dhaka");
+    expect(row.recipient_zone).toBe("Uttara");
+  });
+
+  it("keeps the row in review when the customer never named a city", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        recipient_address: "H-1, R-1, S-6, Uttara",
+        amount_to_collect: 500,
+      },
+      defaults,
+    );
+    expect(row.status).toBe("needs_review");
+    expect(row.issues.some((i) => /city/i.test(i))).toBe(true);
+    expect(row.recipient_address).toBe("House 1, Road 1, Sector 6, Uttara");
+    expect(row.recipient_city).toBe("");
+  });
+
+  it("is ready when the city is already in the address, without inferring a zone", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        recipient_address: "Hazipara, Thakurgaon",
+        amount_to_collect: 500,
+      },
+      defaults,
+    );
+    expect(row.status).toBe("ready");
+    expect(row.recipient_city).toBe("Thakurgaon");
+    expect(row.recipient_zone).toBe("");
+    expect(row.recipient_address).toBe("Hazipara, Thakurgaon");
+  });
+
+  it("keeps Sylhet when it is already the last part of the address", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Farzana Islam Prity",
+        recipient_phone: "01323595505",
+        recipient_address: "North Jahanpur, Mitali Store, Majortila, Sylhet",
+        amount_to_collect: 550,
+      },
+      defaults,
+    );
+    expect(row.status).toBe("ready");
+    expect(row.recipient_city).toBe("Sylhet");
+    expect(row.recipient_address).toBe("North Jahanpur, Mitali Store, Majortila, Sylhet");
+  });
+
+  it("restores a city that was written but dropped from the tidy address", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Farzana Islam Prity",
+        recipient_phone: "01323595505",
+        recipient_address: "North Jahanpur, Mitali Store, Majortila",
+        recipient_address_raw: "uttor jahanpur, mitali stor, majortila, Sylhet",
+        amount_to_collect: 550,
+      },
+      defaults,
+    );
+    expect(row.recipient_city).toBe("Sylhet");
+    expect(row.recipient_address).toMatch(/Sylhet/i);
+    expect(row.status).toBe("ready");
+  });
+
+  it("does not infer Chittagong from Chawkbazar Thana", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Tamanna",
+        recipient_phone: "01701645752",
+        recipient_address: "Inside Women Madrasah, Chawkbazar Thana, Chattogram",
+        recipient_address_raw:
+          "nam Tamanna address mohila madrasah bhitore thana Chawkbazar",
+        amount_to_collect: 550,
+      },
+      defaults,
+    );
+    expect(row.recipient_city).toBe("");
+    expect(row.recipient_address).not.toMatch(/Chittagong|Chattogram/i);
+    expect(row.status).toBe("needs_review");
+  });
+
+  it("attaches a manually typed city to the address", () => {
+    const row = normalizeExpectedOrder(
+      {
+        recipient_name: "Rahim",
+        recipient_phone: "01710000000",
+        recipient_address: "House 1, Sector 24, Uttara",
+        recipient_city: "dhaka",
+        amount_to_collect: 500,
+      },
+      defaults,
+    );
+    expect(row.status).toBe("ready");
+    expect(row.recipient_city).toBe("Dhaka");
+    expect(row.recipient_address).toBe("House 1, Sector 24, Uttara, Dhaka");
   });
 
   it("needs review when the phone is invalid", () => {
@@ -95,7 +194,7 @@ describe("normalizeExpectedOrder", () => {
     expect(row.issues.some((i) => /phone/i.test(i))).toBe(true);
   });
 
-  it("uses product selling price when COD is missing", () => {
+  it("needs review when the COD price is missing", () => {
     const row = normalizeExpectedOrder(
       {
         recipient_name: "Mr Xyz",
@@ -106,9 +205,10 @@ describe("normalizeExpectedOrder", () => {
       defaults,
       [{ id: 9, name: "Serum", selling_price: 850 }],
     );
-    expect(row.amount_to_collect).toBe(850);
+    expect(row.status).toBe("needs_review");
+    expect(row.issues.some((i) => /price|amount/i.test(i))).toBe(true);
     expect(row.product_id).toBe(9);
-    expect(row.recipient_city).toBe("Dhaka");
+    expect(row.recipient_city).toBe("");
   });
 });
 
@@ -116,6 +216,11 @@ describe("statusAfterEdit", () => {
   it("keeps exported when the row stays valid", () => {
     expect(statusAfterEdit("ready", "exported")).toBe("exported");
     expect(statusAfterEdit("needs_review", "exported")).toBe("needs_review");
+  });
+
+  it("keeps created rows created and lets failed rows become ready", () => {
+    expect(statusAfterEdit("ready", "created")).toBe("created");
+    expect(statusAfterEdit("ready", "failed")).toBe("ready");
   });
 });
 

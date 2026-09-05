@@ -69,6 +69,8 @@ export function ExpectedOrdersFilters({
             <SelectItem value="needs_review">Needs review</SelectItem>
             <SelectItem value="ready">Ready</SelectItem>
             <SelectItem value="exported">Exported</SelectItem>
+            <SelectItem value="created">Created in Pathao</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
             <SelectItem value="discarded">Discarded</SelectItem>
           </SelectContent>
         </Select>

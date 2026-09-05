@@ -8,6 +8,7 @@ import {
   Package,
   Receipt,
   Settings,
+  Truck,
   Upload,
   Wallet,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const items = [
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/expenses", label: "Expenses", icon: Wallet },
   { href: "/upload", label: "Upload CSV", icon: Upload },
+  { href: "/carriers", label: "Carriers", icon: Truck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -326,7 +326,7 @@ function similarity(a: string, b: string): number {
   return (2 * overlap) / (aTokens.size + bTokens.size);
 }
 
-export function matchCity(raw: string | null | undefined): string | null {
+export function matchCityToken(raw: string | null | undefined): string | null {
   const folded = foldLocation(raw ?? "");
   if (!folded) return null;
   const exact = CITY_INDEX.get(folded);
@@ -346,6 +346,15 @@ export function matchCity(raw: string | null | undefined): string | null {
       return city.name;
     }
   }
+  return null;
+}
+
+export function matchCity(raw: string | null | undefined): string | null {
+  const token = matchCityToken(raw);
+  if (token) return token;
+
+  const folded = foldLocation(raw ?? "");
+  if (!folded) return null;
 
   let best: { name: string; score: number } | null = null;
   for (const city of PATHAO_CITIES) {

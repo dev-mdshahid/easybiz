@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-import {
-  cityNamesForPrompt,
-  locationCatalogForPrompt,
-  resolveLocation,
-  zoneNamesForPrompt,
-} from "@/lib/pathao-locations";
 import type { ProductHint } from "@/lib/expected-order";
 import { resolveAiConnection } from "@/lib/ai-providers";
 
@@ -18,9 +12,7 @@ export type ExtractedAiOrder = {
   recipient_name: string | null;
   recipient_phone: string | null;
   recipient_address: string | null;
-  recipient_city: string | null;
-  recipient_zone: string | null;
-  recipient_area: string | null;
+  recipient_address_as_written: string | null;
   amount_to_collect: number | null;
   item_quantity: number | null;
   item_weight: number | null;
@@ -34,9 +26,7 @@ const orderSchema = z.object({
   recipient_name: z.string().nullable().optional(),
   recipient_phone: z.string().nullable().optional(),
   recipient_address: z.string().nullable().optional(),
-  recipient_city: z.string().nullable().optional(),
-  recipient_zone: z.string().nullable().optional(),
-  recipient_area: z.string().nullable().optional(),
+  recipient_address_as_written: z.string().nullable().optional(),
   amount_to_collect: z.number().nullable().optional(),
   item_quantity: z.number().nullable().optional(),
   item_weight: z.number().nullable().optional(),
@@ -62,31 +52,38 @@ function buildSystemPrompt(products: ProductHint[]): string {
           })
           .join("\n");
 
-  return `You extract courier orders from merchant–customer chat screenshots (WhatsApp, Messenger, Facebook, Instagram). Language may be Bangla, English, or mixed.
+  return `You extract courier orders from merchant–customer chat screenshots (WhatsApp, Messenger, Facebook, Instagram). The chat may be Bangla, English, or mixed. The JSON you return must be English only.
 
 Return JSON only: {"orders":[...]}. One conversation can contain multiple orders. If nothing is an order, return {"orders":[]}.
 
-For each order:
-- recipient_name, recipient_phone, recipient_address, recipient_city, recipient_zone, recipient_area
-- amount_to_collect (COD number, no currency symbols). Prepaid / already paid → 0
-- item_quantity, item_weight (kg), item_desc, special_instruction, item_type ("parcel" or "document")
-- warnings: short notes about guesses or missing fields
+Every text field must be clear, well-formatted English. No Bangla script. Transliterate names and places the customer actually wrote (রহিম → Rahim, উত্তরা → Uttara, ঠাকুরগাঁও → Thakurgaon, ঢাকা → Dhaka). Phone digits and amounts stay numbers.
 
-Rules:
-- Prefer null over a bad guess for name, phone, and amount. Do NOT leave city or zone null if the address contains a locality.
-- Bangladeshi mobiles: 11 digits starting with 01.
-- Pathao CSV needs RecipientCity and RecipientZone as exact names. Infer both from the delivery address even when the customer never says “city” or “zone”.
-- City is the Pathao city (Dhaka, Chattogram, Gazipur…). Zone is the Pathao thana/area inside that city (Uttara, Mirpur, Gulshan). Never put a zone name in city.
-- Examples: “H-1, R-1, S-6, Uttara” → city Dhaka, zone Uttara. “Mirpur-10” → Dhaka / Mirpur. “Agrabad, CTG” → Chattogram / Agrabad. “Tongi” → Gazipur / Tongi.
-- Use only these Pathao names:
-${locationCatalogForPrompt()}
-- Pathao cities: ${cityNamesForPrompt()}.
-- Common Dhaka zones: ${zoneNamesForPrompt("Dhaka")}.
-- recipient_area can be a more specific bit (sector, block) if present; otherwise null.
-- Use the merchant catalog for item_desc when the chat matches a product. If COD is missing, you may use that product's list price and mention it in warnings.
+Mandatory fields for each order (null if the chat does not contain them):
+- recipient_name (English, Title Case)
+- recipient_phone (11-digit Bangladeshi mobile starting with 01)
+- recipient_address_as_written: the delivery address copied faithfully — same places, nothing extra. Transliterate only. Do not complete it with a city.
+- recipient_address: the same places, organized into one clean English line.
+- amount_to_collect (COD number, no currency symbols). Prepaid / already paid → 0. If the price is not in the chat, null — never invent a price.
+
+Optional:
+- item_quantity, item_weight (kg), item_desc, special_instruction, item_type ("parcel" or "document")
+- warnings: short English notes about missing mandatory fields
+
+Address rules (absolute):
+- Copy the places in the screenshot. Organize into a readable line. Do not add any new place. Do not drop any place they wrote.
+- Labels like Name / Add / Phn / নাম / এড্রেস / থানা are labels, not extra places.
+- A thana, zone, or area is NOT a city. Never guess the parent city.
+- WRONG: "থানা চকবাজার" / "Chawkbazar Thana" → adding Chittagong, Chattogram, or Dhaka. RIGHT: "Inside Women Madrasah, Chawkbazar Thana".
+- WRONG: "H-1, Uttara" → "House 1, Uttara, Dhaka". RIGHT: "House 1, Uttara".
+- RIGHT: "Add, uttor jahanpur, mitali stor, majortila, Sylhet" → "Uttar Jahanpur, Mitali Store, Majortila, Sylhet" (they wrote Sylhet — keep it).
+- WRONG: dropping a city they did write. WRONG: adding Thakurgaon Sadar when they only wrote Thakurgaon.
+- Expand abbreviations already present (H-1 → House 1, CTG → Chattogram). CTG is a city they wrote; a thana is not.
+- Do not output Pathao city/zone/area IDs. There is no city field — if they named a city, it belongs in the address line.
+
+Catalog may be used only for item_desc when the chat matches a product. Do not use catalog prices as the COD amount.
 Catalog:
 ${catalog}
-- Special instructions: call before delivery, evening only, landmarks, etc.
+- Special instructions: English (call before delivery, evening only, landmarks they mentioned).
 - Ignore greetings, stickers, and unrelated chat.`;
 }
 
@@ -107,9 +104,7 @@ function toAiOrder(row: z.infer<typeof orderSchema>): ExtractedAiOrder {
     recipient_name: row.recipient_name ?? null,
     recipient_phone: row.recipient_phone ?? null,
     recipient_address: row.recipient_address ?? null,
-    recipient_city: row.recipient_city ?? null,
-    recipient_zone: row.recipient_zone ?? null,
-    recipient_area: row.recipient_area ?? null,
+    recipient_address_as_written: row.recipient_address_as_written ?? null,
     amount_to_collect: row.amount_to_collect ?? null,
     item_quantity: row.item_quantity ?? null,
     item_weight: row.item_weight ?? null,
@@ -153,8 +148,8 @@ export async function extractOrdersFromImages(options: {
   }));
 
   const userText = options.note?.trim()
-    ? `Merchant note:\n${options.note.trim()}\n\nExtract every order from the screenshots.`
-    : "Extract every order from the screenshots.";
+    ? `Merchant note:\n${options.note.trim()}\n\nExtract every order from the screenshots. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.`
+    : "Extract every order from the screenshots. Write every text field in English only. Keep every place they wrote. Do not add a city for a thana or zone.";
 
   const body: Record<string, unknown> = {
     model,
@@ -185,9 +180,7 @@ export async function extractOrdersFromImages(options: {
                   "recipient_name",
                   "recipient_phone",
                   "recipient_address",
-                  "recipient_city",
-                  "recipient_zone",
-                  "recipient_area",
+                  "recipient_address_as_written",
                   "amount_to_collect",
                   "item_quantity",
                   "item_weight",
@@ -200,9 +193,7 @@ export async function extractOrdersFromImages(options: {
                   recipient_name: { type: ["string", "null"] },
                   recipient_phone: { type: ["string", "null"] },
                   recipient_address: { type: ["string", "null"] },
-                  recipient_city: { type: ["string", "null"] },
-                  recipient_zone: { type: ["string", "null"] },
-                  recipient_area: { type: ["string", "null"] },
+                  recipient_address_as_written: { type: ["string", "null"] },
                   amount_to_collect: { type: ["number", "null"] },
                   item_quantity: { type: ["number", "null"] },
                   item_weight: { type: ["number", "null"] },
@@ -263,52 +254,62 @@ export async function extractOrdersFromImages(options: {
   };
 }
 
-const locationRowSchema = z.object({
+export type OrderEnglishFields = {
+  recipient_name: string;
+  recipient_address: string;
+  recipient_city: string;
+  item_desc: string;
+  special_instruction: string;
+  warnings: string[];
+};
+
+const englishRowSchema = z.object({
   index: z.number(),
-  city: z.string().nullable().optional(),
-  zone: z.string().nullable().optional(),
-  area: z.string().nullable().optional(),
+  recipient_name: z.string().nullable().optional(),
+  recipient_address: z.string().nullable().optional(),
+  recipient_city: z.string().nullable().optional(),
+  item_desc: z.string().nullable().optional(),
+  special_instruction: z.string().nullable().optional(),
+  warnings: z.array(z.string()).nullable().optional(),
 });
 
-const locationPayloadSchema = z.object({
-  locations: z.array(locationRowSchema),
+const englishPayloadSchema = z.object({
+  orders: z.array(englishRowSchema),
 });
 
-export type AddressLocationHint = {
-  address: string;
-  city?: string | null;
-  zone?: string | null;
-  area?: string | null;
-};
+function englishSystemPrompt(): string {
+  return `You rewrite courier-order text into clear, well-formatted English. Every returned string must use English letters, digits, and punctuation only — no Bangla or other non-Latin script.
 
-export type InferredPathaoLocation = {
-  city: string;
-  zone: string;
-  area: string;
-};
+Return JSON only: {"orders":[{"index":0,"recipient_name":"...","recipient_address":"...","recipient_city":"...","item_desc":"...","special_instruction":"...","warnings":["..."]}]}.
 
-function locationSystemPrompt(): string {
-  return `You map Bangladesh delivery addresses to Pathao Merchant bulk-order fields RecipientCity and RecipientZone.
-
-Return JSON only: {"locations":[{"index":0,"city":"...","zone":"...","area":"..."}]}.
+For each order:
+- recipient_name: proper English name, Title Case (রহিম → Rahim, মোঃ করিম → Md. Karim).
+- recipient_address: rephrase into one clean English line. Keep every place already in the text, including a trailing city they wrote (Sylhet, Dhaka, Thakurgaon). Reorder, commas, spelling, and expand abbreviations already present (H-1 → House 1, CTG → Chattogram). Transliterate Bangla place names that are already there (উত্তরা → Uttara).
+- recipient_city: translate the city field if it already has a value. If the city field is empty, leave it empty — do not fill it from a thana, zone, or geography (Chawkbazar is not Chittagong).
+- item_desc and special_instruction: natural English of the same meaning.
+- warnings: short English notes.
 
 Rules:
-- Pick the single most appropriate Pathao city and zone for each address. Use exact names from this catalog (copy spelling):
-${locationCatalogForPrompt()}
-- Infer from the full address, landmarks, thana, sector, and any city/zone hints. The customer often only writes a street address.
-- City is never a Dhaka neighbourhood. Uttara, Mirpur, Gulshan, Dhanmondi, Mohammadpur, Badda, etc. are zones in Dhaka.
-- If several zones could fit, choose the one that best matches the most specific locality in the address (sector, block, thana).
-- area is optional extra detail (sector, block). Use "" if none.
-- Never invent a city that is not in the catalog. Pathao covers all 64 districts (including Thakurgaon, Dinajpur, Panchagarh, Tangail, and the rest). For a district town with no thana, use city name plus "Sadar" as the zone.`;
+- Rephrase only. Do not add facts, places, or details from your own knowledge. Do not drop places that are already in the input.
+- NEVER add a city, zone, thana, area, district, house, road, landmark, or Sadar that is not already in the input.
+- WRONG: address "House 1, Uttara" → "House 1, Uttara, Dhaka". RIGHT: "House 1, Uttara".
+- WRONG: "Inside Women Madrasah, Chawkbazar Thana" → adding Chittagong or Chattogram.
+- WRONG: dropping Sylhet from "Uttar Jahanpur, Mitali Store, Majortila, Sylhet".
+- If a field is empty, return an empty string (and an empty warnings array).`;
 }
 
-export async function inferPathaoLocations(options: {
+function pickFormatted(formatted: string | null | undefined, original: string): string {
+  const next = formatted?.replace(/\s+/g, " ").trim() ?? "";
+  return next || original;
+}
+
+export async function formatOrdersInEnglish(options: {
   apiKey: string;
   provider?: string | null;
   baseUrl?: string | null;
   model?: string | null;
-  rows: AddressLocationHint[];
-}): Promise<InferredPathaoLocation[]> {
+  rows: OrderEnglishFields[];
+}): Promise<(OrderEnglishFields | null)[]> {
   if (options.rows.length === 0) return [];
 
   const connection = resolveAiConnection({
@@ -331,43 +332,51 @@ export async function inferPathaoLocations(options: {
 
   const payload = options.rows.map((row, index) => ({
     index,
-    address: row.address,
-    city_hint: row.city ?? null,
-    zone_hint: row.zone ?? null,
-    area_hint: row.area ?? null,
+    ...row,
   }));
 
   const body: Record<string, unknown> = {
     model,
     temperature: 0,
     messages: [
-      { role: "system", content: locationSystemPrompt() },
+      { role: "system", content: englishSystemPrompt() },
       {
         role: "user",
-        content: `Choose the best Pathao city and zone for each address:\n${JSON.stringify(payload)}`,
+        content: `Rewrite these orders into English only. Rephrase for clarity. Do not add any place name, city, or landmark that is not already in the input:\n${JSON.stringify(payload)}`,
       },
     ],
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "pathao_locations",
+        name: "english_orders",
         strict: true,
         schema: {
           type: "object",
           additionalProperties: false,
-          required: ["locations"],
+          required: ["orders"],
           properties: {
-            locations: {
+            orders: {
               type: "array",
               items: {
                 type: "object",
                 additionalProperties: false,
-                required: ["index", "city", "zone", "area"],
+                required: [
+                  "index",
+                  "recipient_name",
+                  "recipient_address",
+                  "recipient_city",
+                  "item_desc",
+                  "special_instruction",
+                  "warnings",
+                ],
                 properties: {
                   index: { type: "integer" },
-                  city: { type: ["string", "null"] },
-                  zone: { type: ["string", "null"] },
-                  area: { type: ["string", "null"] },
+                  recipient_name: { type: ["string", "null"] },
+                  recipient_address: { type: ["string", "null"] },
+                  recipient_city: { type: ["string", "null"] },
+                  item_desc: { type: ["string", "null"] },
+                  special_instruction: { type: ["string", "null"] },
+                  warnings: { type: "array", items: { type: "string" } },
                 },
               },
             },
@@ -409,26 +418,29 @@ export async function inferPathaoLocations(options: {
     }
   }
 
-  const parsed = locationPayloadSchema.safeParse(raw);
+  const parsed = englishPayloadSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error("The model returned locations in an unexpected shape.");
+    throw new Error("The model returned English orders in an unexpected shape.");
   }
-
-  const byIndex = new Map(
-    parsed.data.locations.map((row) => [row.index, row]),
-  );
-
-  return options.rows.map((row, index) => {
-    const inferred = byIndex.get(index);
-    const snapped = resolveLocation({
-      city: inferred?.city ?? row.city,
-      zone: inferred?.zone ?? row.zone,
-      address: row.address,
-    });
+  const byIndex = new Map(parsed.data.orders.map((row) => [row.index, row]));
+  return options.rows.map((original, index) => {
+    const formatted = byIndex.get(index);
+    if (!formatted) return null;
+    const warnings = (formatted.warnings ?? [])
+      .map((warning) => warning.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
     return {
-      city: snapped.city,
-      zone: snapped.zone,
-      area: (inferred?.area ?? row.area ?? "").trim(),
+      recipient_name: pickFormatted(formatted.recipient_name, original.recipient_name),
+      recipient_address: pickFormatted(formatted.recipient_address, original.recipient_address),
+      recipient_city: original.recipient_city
+        ? pickFormatted(formatted.recipient_city, original.recipient_city)
+        : "",
+      item_desc: pickFormatted(formatted.item_desc, original.item_desc),
+      special_instruction: pickFormatted(
+        formatted.special_instruction,
+        original.special_instruction,
+      ),
+      warnings: warnings.length > 0 ? warnings : original.warnings,
     };
   });
 }

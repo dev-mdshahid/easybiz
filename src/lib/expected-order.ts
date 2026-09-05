@@ -1,9 +1,11 @@
-import { resolveLocation } from "@/lib/pathao-locations";
+import { formatAddressForPathao, explicitCityFromText } from "@/lib/pathao-address";
 
 export const EXPECTED_ORDER_STATUSES = [
   "needs_review",
   "ready",
   "exported",
+  "created",
+  "failed",
   "discarded",
 ] as const;
 
@@ -70,6 +72,7 @@ export type ExtractedOrderDraft = {
   recipient_name?: string | null;
   recipient_phone?: string | null;
   recipient_address?: string | null;
+  recipient_address_raw?: string | null;
   recipient_city?: string | null;
   recipient_zone?: string | null;
   recipient_area?: string | null;
@@ -95,6 +98,7 @@ export type NormalizedExpectedOrder = {
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
+  recipient_address_raw: string;
   recipient_city: string;
   recipient_zone: string;
   recipient_area: string;
@@ -166,12 +170,22 @@ export function normalizeExpectedOrder(
 
   const name = trimText(draft.recipient_name, 100);
   const phone = normalizePhone(draft.recipient_phone);
-  const address = trimText(draft.recipient_address, 220);
-  const location = resolveLocation({
-    city: draft.recipient_city,
-    zone: draft.recipient_zone,
-    address,
+  const rawAddress = trimText(
+    draft.recipient_address_raw || draft.recipient_address,
+    500,
+  );
+  const formatted = formatAddressForPathao({
+    address: trimText(draft.recipient_address, 500) || rawAddress,
+    city: trimText(draft.recipient_city, 80),
+    source: rawAddress,
   });
+  const address = formatted.formatted;
+  const typedCity = trimText(draft.recipient_city, 80);
+  const city =
+    explicitCityFromText(typedCity) ||
+    explicitCityFromText(address) ||
+    "";
+  const zone = trimText(draft.recipient_zone, 80);
   const area = trimText(draft.recipient_area, 80);
   const amountParsed = parseAmount(draft.amount_to_collect);
   const qty = parseQty(draft.item_quantity) ?? 1;
@@ -194,22 +208,18 @@ export function normalizeExpectedOrder(
 
   let amount = amountParsed.value;
   if (amount == null) {
-    if (product?.selling_price != null) {
-      amount = Number(product.selling_price);
-      warnings.push(
-        `COD missing in chat — used ${product.name} selling price.`,
-      );
-    } else {
-      amount = 0;
-      warnings.push("COD amount was not found. Using 0 (prepaid). Confirm before export.");
-    }
+    issues.push("Price / amount to collect is required.");
+    amount = 0;
   }
 
-  if (name.length < 3) issues.push("Recipient name is too short.");
+  if (name.length < 3) issues.push("Recipient name is required.");
   if (!isValidBdMobile(phone)) issues.push("Phone must be an 11-digit Bangladeshi mobile.");
-  if (address.length < 10) issues.push("Address must be at least 10 characters.");
-  if (!location.city) issues.push("City is missing or not a Pathao city name.");
-  if (!location.zone) issues.push("Zone is missing or not a Pathao zone name.");
+  if (address.length < 10) issues.push("Delivery address is required (at least 10 characters).");
+  if (!city) {
+    issues.push(
+      "City is required. The customer must name the city/district, or type it in edit so it can be added to the address.",
+    );
+  }
   if (amount < 0 || !Number.isFinite(amount)) issues.push("Amount to collect is invalid.");
   if (weight < 0.5 || weight > 10) issues.push("Weight must be between 0.5 and 10 kg.");
   if (qty < 1) issues.push("Quantity must be at least 1.");
@@ -220,8 +230,9 @@ export function normalizeExpectedOrder(
     recipient_name: name,
     recipient_phone: phone,
     recipient_address: address,
-    recipient_city: location.city || trimText(draft.recipient_city, 80),
-    recipient_zone: location.zone || trimText(draft.recipient_zone, 80),
+    recipient_address_raw: formatted.raw || rawAddress || address,
+    recipient_city: city,
+    recipient_zone: zone,
     recipient_area: area,
     amount_to_collect: amount,
     item_quantity: qty,
@@ -240,6 +251,7 @@ export function statusAfterEdit(
   previous: string,
 ): ExpectedOrderStatus {
   if (previous === "discarded") return "discarded";
+  if (previous === "created") return "created";
   if (next === "needs_review") return "needs_review";
   if (previous === "exported") return "exported";
   return "ready";

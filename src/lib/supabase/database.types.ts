@@ -303,6 +303,18 @@ export type Database = {
           default_item_type: string;
           default_item_weight: number;
           default_store_name: string;
+          pathao_access_token: string;
+          pathao_client_id: string;
+          pathao_client_secret: string;
+          pathao_connected_at: string | null;
+          pathao_delivery_type: number;
+          pathao_environment: string;
+          pathao_password: string;
+          pathao_refresh_token: string;
+          pathao_store_id: number | null;
+          pathao_store_name: string;
+          pathao_token_expires_at: string | null;
+          pathao_username: string;
           updated_at: string;
         };
         Insert: {
@@ -314,6 +326,18 @@ export type Database = {
           default_item_type?: string;
           default_item_weight?: number;
           default_store_name?: string;
+          pathao_access_token?: string;
+          pathao_client_id?: string;
+          pathao_client_secret?: string;
+          pathao_connected_at?: string | null;
+          pathao_delivery_type?: number;
+          pathao_environment?: string;
+          pathao_password?: string;
+          pathao_refresh_token?: string;
+          pathao_store_id?: number | null;
+          pathao_store_name?: string;
+          pathao_token_expires_at?: string | null;
+          pathao_username?: string;
           updated_at?: string;
         };
         Update: {
@@ -325,6 +349,18 @@ export type Database = {
           default_item_type?: string;
           default_item_weight?: number;
           default_store_name?: string;
+          pathao_access_token?: string;
+          pathao_client_id?: string;
+          pathao_client_secret?: string;
+          pathao_connected_at?: string | null;
+          pathao_delivery_type?: number;
+          pathao_environment?: string;
+          pathao_password?: string;
+          pathao_refresh_token?: string;
+          pathao_store_id?: number | null;
+          pathao_store_name?: string;
+          pathao_token_expires_at?: string | null;
+          pathao_username?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -392,8 +428,13 @@ export type Database = {
           item_type: string;
           item_weight: number;
           merchant_order_id: string;
+          pathao_consignment_id: string;
+          pathao_delivery_fee: number | null;
+          pathao_error: string;
+          pathao_submitted_at: string | null;
           product_id: number | null;
           recipient_address: string;
+          recipient_address_raw: string;
           recipient_area: string;
           recipient_city: string;
           recipient_name: string;
@@ -418,8 +459,13 @@ export type Database = {
           item_type?: string;
           item_weight?: number;
           merchant_order_id?: string;
+          pathao_consignment_id?: string;
+          pathao_delivery_fee?: number | null;
+          pathao_error?: string;
+          pathao_submitted_at?: string | null;
           product_id?: number | null;
           recipient_address?: string;
+          recipient_address_raw?: string;
           recipient_area?: string;
           recipient_city?: string;
           recipient_name?: string;
@@ -444,8 +490,13 @@ export type Database = {
           item_type?: string;
           item_weight?: number;
           merchant_order_id?: string;
+          pathao_consignment_id?: string;
+          pathao_delivery_fee?: number | null;
+          pathao_error?: string;
+          pathao_submitted_at?: string | null;
           product_id?: number | null;
           recipient_address?: string;
+          recipient_address_raw?: string;
           recipient_area?: string;
           recipient_city?: string;
           recipient_name?: string;

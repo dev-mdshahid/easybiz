@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getBusinessContext } from "@/app/business-actions";
-import { extractOrdersFromImages, inferPathaoLocations, type ChatImage } from "@/lib/ai-client";
+import { extractOrdersFromImages, formatOrdersInEnglish, type ChatImage, type ExtractedAiOrder } from "@/lib/ai-client";
 import {
   getAiProvider,
   inferAiProvider,
@@ -22,6 +22,7 @@ import {
   type ProductHint,
 } from "@/lib/expected-order";
 import { buildPathaoBulkCsv } from "@/lib/pathao-bulk-csv";
+import { alignCitiesToSource, explicitCityFromText } from "@/lib/pathao-address";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   BusinessSettings,
@@ -41,6 +42,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
 function revalidateExpected() {
   revalidatePath("/expected-orders");
   revalidatePath("/settings");
+  revalidatePath("/carriers");
 }
 
 export type PublicOrderCreationSettings = {
@@ -185,6 +187,7 @@ function draftFromForm(formData: FormData) {
     recipient_name: String(formData.get("recipient_name") ?? ""),
     recipient_phone: String(formData.get("recipient_phone") ?? ""),
     recipient_address: String(formData.get("recipient_address") ?? ""),
+    recipient_address_raw: String(formData.get("recipient_address_raw") ?? ""),
     recipient_city: String(formData.get("recipient_city") ?? ""),
     recipient_zone: String(formData.get("recipient_zone") ?? ""),
     recipient_area: String(formData.get("recipient_area") ?? ""),
@@ -198,7 +201,7 @@ function draftFromForm(formData: FormData) {
   };
 }
 
-async function fillCityZoneFromAddress(
+async function polishDraftAddresses(
   settings: BusinessSettings | null,
   drafts: ExtractedOrderDraft[],
 ): Promise<ExtractedOrderDraft[]> {
@@ -208,42 +211,84 @@ async function fillCityZoneFromAddress(
   const targets = drafts
     .map((draft, index) => ({
       index,
-      address: String(draft.recipient_address ?? "").trim(),
-      city: draft.recipient_city,
-      zone: draft.recipient_zone,
-      area: draft.recipient_area,
+      recipient_name: String(draft.recipient_name ?? "").trim(),
+      recipient_address: String(draft.recipient_address ?? "").trim(),
+      recipient_city: String(draft.recipient_city ?? "").trim(),
+      item_desc: String(draft.item_desc ?? "").trim(),
+      special_instruction: String(draft.special_instruction ?? "").trim(),
+      warnings: (draft.warnings ?? []).filter(
+        (warning): warning is string => typeof warning === "string" && warning.trim() !== "",
+      ),
     }))
-    .filter((row) => row.address.length >= 8);
+    .filter(
+      (row) =>
+        row.recipient_name ||
+        row.recipient_address ||
+        row.recipient_city ||
+        row.item_desc ||
+        row.special_instruction ||
+        row.warnings.length > 0,
+    );
   if (targets.length === 0) return drafts;
 
   try {
-    const inferred = await inferPathaoLocations({
+    const polished = await formatOrdersInEnglish({
       apiKey,
       provider: settings?.ai_provider,
       baseUrl: settings?.ai_base_url,
       model: settings?.ai_model,
       rows: targets.map((row) => ({
-        address: row.address,
-        city: row.city,
-        zone: row.zone,
-        area: row.area,
+        recipient_name: row.recipient_name,
+        recipient_address: row.recipient_address,
+        recipient_city: row.recipient_city,
+        item_desc: row.item_desc,
+        special_instruction: row.special_instruction,
+        warnings: row.warnings,
       })),
     });
     const next = drafts.slice();
     targets.forEach((row, i) => {
-      const hit = inferred[i];
-      if (!hit) return;
+      const formatted = polished[i];
+      if (!formatted) return;
+      const source =
+        next[row.index].recipient_address_raw || row.recipient_address;
+      const address = alignCitiesToSource(
+        source,
+        formatted.recipient_address || row.recipient_address,
+      );
       next[row.index] = {
         ...next[row.index],
-        recipient_city: hit.city || next[row.index].recipient_city,
-        recipient_zone: hit.zone || next[row.index].recipient_zone,
-        recipient_area: hit.area || next[row.index].recipient_area,
+        recipient_name: formatted.recipient_name || next[row.index].recipient_name,
+        recipient_address_raw:
+          next[row.index].recipient_address_raw || next[row.index].recipient_address,
+        recipient_address: address,
+        recipient_city: row.recipient_city
+          ? formatted.recipient_city || row.recipient_city
+          : explicitCityFromText(address) || "",
+        item_desc: formatted.item_desc || next[row.index].item_desc,
+        special_instruction:
+          formatted.special_instruction || next[row.index].special_instruction,
+        warnings: formatted.warnings.length > 0 ? formatted.warnings : next[row.index].warnings,
       };
     });
     return next;
   } catch {
     return drafts;
   }
+}
+
+function draftsFromExtracted(orders: ExtractedAiOrder[]): ExtractedOrderDraft[] {
+  return orders.map((order) => {
+    const written = String(order.recipient_address_as_written || order.recipient_address || "").trim();
+    const cleaned = String(order.recipient_address || written).trim();
+    const address = alignCitiesToSource(written, cleaned);
+    return {
+      ...order,
+      recipient_address_raw: written,
+      recipient_address: address,
+      recipient_city: explicitCityFromText(address) || "",
+    };
+  });
 }
 
 async function findDuplicateWarning(
@@ -291,6 +336,7 @@ async function insertNormalizedOrder(options: {
       recipient_name: options.normalized.recipient_name,
       recipient_phone: options.normalized.recipient_phone,
       recipient_address: options.normalized.recipient_address,
+      recipient_address_raw: options.normalized.recipient_address_raw,
       recipient_city: options.normalized.recipient_city,
       recipient_zone: options.normalized.recipient_zone,
       recipient_area: options.normalized.recipient_area,
@@ -339,7 +385,7 @@ export async function listExpectedOrders(params?: {
 
   if (
     params?.status &&
-    ["needs_review", "ready", "exported", "discarded"].includes(params.status)
+    ["needs_review", "ready", "exported", "created", "failed", "discarded"].includes(params.status)
   ) {
     query = query.eq("status", params.status);
   }
@@ -459,10 +505,13 @@ export async function extractExpectedOrders(
       })
       .eq("id", intake.id);
 
-    const located = await fillCityZoneFromAddress(settings, extracted.orders);
+    const polished = await polishDraftAddresses(
+      settings,
+      draftsFromExtracted(extracted.orders),
+    );
 
     const saved: ExpectedOrder[] = [];
-    for (const order of located) {
+    for (const order of polished) {
       const normalized = normalizeExpectedOrder(order, defaults, products);
       const duplicate = await findDuplicateWarning(
         current.id,
@@ -502,7 +551,7 @@ export async function addExpectedOrder(
   }
   const settings = await loadSettingsRow(current.id);
   const products = await loadProducts(current.id);
-  const [draft] = await fillCityZoneFromAddress(settings, [draftFromForm(formData)]);
+  const [draft] = await polishDraftAddresses(settings, [draftFromForm(formData)]);
   const normalized = normalizeExpectedOrder(
     draft,
     defaultsFromSettings(settings),
@@ -549,10 +598,17 @@ export async function updateExpectedOrder(
   if (existing.status === "discarded") {
     return { ok: false, message: "Discarded orders cannot be edited." };
   }
+  if (existing.status === "created" || existing.pathao_consignment_id) {
+    return { ok: false, message: "Orders already created in Pathao cannot be edited." };
+  }
 
   const settings = await loadSettingsRow(current.id);
   const products = await loadProducts(current.id);
-  const [draft] = await fillCityZoneFromAddress(settings, [draftFromForm(formData)]);
+  const formDraft = draftFromForm(formData);
+  if (!formDraft.recipient_address_raw) {
+    formDraft.recipient_address_raw = existing.recipient_address_raw || existing.recipient_address;
+  }
+  const [draft] = await polishDraftAddresses(settings, [formDraft]);
   const normalized = normalizeExpectedOrder(
     draft,
     defaultsFromSettings(settings),
@@ -576,6 +632,7 @@ export async function updateExpectedOrder(
       recipient_name: normalized.recipient_name,
       recipient_phone: normalized.recipient_phone,
       recipient_address: normalized.recipient_address,
+      recipient_address_raw: normalized.recipient_address_raw || existing.recipient_address_raw,
       recipient_city: normalized.recipient_city,
       recipient_zone: normalized.recipient_zone,
       recipient_area: normalized.recipient_area,
@@ -648,10 +705,13 @@ export async function exportExpectedOrdersCsv(
 
   const rows = data ?? [];
   const exportable = rows.filter(
-    (row) => row.status === "ready" || row.status === "exported",
+    (row) => row.status === "ready" || row.status === "exported" || row.status === "failed",
   );
   const blocked = rows.filter(
-    (row) => row.status === "needs_review" || row.status === "discarded",
+    (row) =>
+      row.status === "needs_review" ||
+      row.status === "discarded" ||
+      row.status === "created",
   );
   if (exportable.length === 0) {
     const reason =
