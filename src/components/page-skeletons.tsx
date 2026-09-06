@@ -95,7 +95,7 @@ export function AppSidebarSkeleton() {
       <div className="flex h-full w-full flex-col gap-2 p-3">
         <Skeleton className="h-9 w-full" />
         <div className="mt-4 grid gap-2">
-          {Array.from({ length: 8 }, (_, index) => (
+          {Array.from({ length: 9 }, (_, index) => (
             <div key={index} className="flex h-8 items-center gap-2 px-2">
               <Skeleton className="size-4 rounded-md" />
               <Skeleton className="h-3 w-28" />
@@ -116,7 +116,8 @@ export function DashboardSkeleton() {
     <div className="grid gap-8">
       <section className="grid gap-4">
         <Skeleton className="h-5 w-20" />
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <KpiCardSkeleton />
           <KpiCardSkeleton />
           <KpiCardSkeleton />
         </div>

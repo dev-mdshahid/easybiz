@@ -19,6 +19,7 @@ function revalidateBooks() {
   revalidatePath("/upload");
   revalidatePath("/inventory");
   revalidatePath("/expenses");
+  revalidatePath("/liabilities");
   revalidatePath("/settings");
   revalidatePath("/expected-orders");
   revalidatePath("/carriers");

@@ -95,6 +95,9 @@ export type CashPosition = {
   payouts_since_opening: number;
   stock_purchases: number;
   expenses: number;
+  loan_proceeds: number;
+  loan_repayments: number;
+  liabilities_outstanding: number;
   cash_on_hand: number | null;
 };
 
@@ -106,6 +109,9 @@ function emptyCashPosition(): CashPosition {
     payouts_since_opening: 0,
     stock_purchases: 0,
     expenses: 0,
+    loan_proceeds: 0,
+    loan_repayments: 0,
+    liabilities_outstanding: 0,
     cash_on_hand: null,
   };
 }
@@ -126,6 +132,9 @@ function asCashPosition(value: unknown): CashPosition {
     payouts_since_opening: toNumber(row.payouts_since_opening),
     stock_purchases: toNumber(row.stock_purchases),
     expenses: toNumber(row.expenses),
+    loan_proceeds: toNumber(row.loan_proceeds),
+    loan_repayments: toNumber(row.loan_repayments),
+    liabilities_outstanding: toNumber(row.liabilities_outstanding),
     cash_on_hand: isSet ? toNumber(row.cash_on_hand) : null,
   };
 }

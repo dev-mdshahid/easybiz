@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { CashPositionCard } from "@/components/cash-position";
 import { DashboardPeriod } from "@/components/dashboard-period";
+import { LiabilityPositionCard } from "@/components/liability-position";
 import { DashboardSkeleton } from "@/components/page-skeletons";
 import { StockPositionCard } from "@/components/stock-position";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,9 +38,10 @@ async function DashboardBody({
     <>
       <section className="grid gap-4">
         <h2 className="text-lg font-semibold tracking-tight">On hand</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
           <StockPositionCard stock={stock} hasBusiness={Boolean(current)} />
+          <LiabilityPositionCard cash={cash} hasBusiness={Boolean(current)} />
         </div>
       </section>
 

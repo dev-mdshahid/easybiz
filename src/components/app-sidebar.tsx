@@ -4,6 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardList,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Package,
@@ -37,6 +38,7 @@ const items = [
   { href: "/expected-orders", label: "Expected orders", icon: ClipboardList },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/expenses", label: "Expenses", icon: Wallet },
+  { href: "/liabilities", label: "Liabilities", icon: Landmark },
   { href: "/upload", label: "Upload CSV", icon: Upload },
   { href: "/carriers", label: "Carriers", icon: Truck },
   { href: "/settings", label: "Settings", icon: Settings },

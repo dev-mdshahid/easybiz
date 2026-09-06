@@ -48,6 +48,124 @@ export type Database = {
         };
         Relationships: [];
       };
+      lenders: {
+        Row: {
+          business_id: number;
+          created_at: string;
+          id: number;
+          name: string;
+        };
+        Insert: {
+          business_id: number;
+          created_at?: string;
+          id?: never;
+          name: string;
+        };
+        Update: {
+          business_id?: number;
+          created_at?: string;
+          id?: never;
+          name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lenders_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      liabilities: {
+        Row: {
+          business_id: number;
+          borrowed_on: string;
+          channel: string;
+          created_at: string;
+          id: number;
+          lender: string;
+          note: string | null;
+          principal: number;
+        };
+        Insert: {
+          business_id: number;
+          borrowed_on: string;
+          channel?: string;
+          created_at?: string;
+          id?: never;
+          lender: string;
+          note?: string | null;
+          principal: number;
+        };
+        Update: {
+          business_id?: number;
+          borrowed_on?: string;
+          channel?: string;
+          created_at?: string;
+          id?: never;
+          lender?: string;
+          note?: string | null;
+          principal?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "liabilities_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      liability_repayments: {
+        Row: {
+          amount: number;
+          business_id: number;
+          channel: string;
+          created_at: string;
+          id: number;
+          liability_id: number;
+          note: string | null;
+          repaid_on: string;
+        };
+        Insert: {
+          amount: number;
+          business_id: number;
+          channel?: string;
+          created_at?: string;
+          id?: never;
+          liability_id: number;
+          note?: string | null;
+          repaid_on: string;
+        };
+        Update: {
+          amount?: number;
+          business_id?: number;
+          channel?: string;
+          created_at?: string;
+          id?: never;
+          liability_id?: number;
+          note?: string | null;
+          repaid_on?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "liability_repayments_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "liability_repayments_liability_id_fkey";
+            columns: ["liability_id"];
+            isOneToOne: false;
+            referencedRelation: "liabilities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       expenses: {
         Row: {
           amount: number;
@@ -581,6 +699,29 @@ export type Database = {
       };
     };
     Views: {
+      liabilities_with_balance: {
+        Row: {
+          business_id: number | null;
+          borrowed_on: string | null;
+          channel: string | null;
+          created_at: string | null;
+          id: number | null;
+          lender: string | null;
+          note: string | null;
+          principal: number | null;
+          remaining: number | null;
+          repaid: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "liabilities_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pathao_invoices_current: {
         Row: {
           additional_charge: number | null;
@@ -667,6 +808,12 @@ export type Business = Database["public"]["Tables"]["businesses"]["Row"];
 export type InventoryMovement =
   Database["public"]["Tables"]["inventory_movements"]["Row"];
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
+export type Liability = Database["public"]["Tables"]["liabilities"]["Row"];
+export type Lender = Database["public"]["Tables"]["lenders"]["Row"];
+export type LiabilityRepayment =
+  Database["public"]["Tables"]["liability_repayments"]["Row"];
+export type LiabilityWithBalance =
+  Database["public"]["Views"]["liabilities_with_balance"]["Row"];
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductCostLine =
   Database["public"]["Tables"]["product_cost_lines"]["Row"];

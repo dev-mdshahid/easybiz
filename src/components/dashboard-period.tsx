@@ -48,8 +48,9 @@ export function DashboardPeriod({
         <div>
           <h2 className="text-lg font-semibold tracking-tight">This period</h2>
           <p className="text-sm text-muted-foreground">
-            Pathao cash, the default item recipe, and logged expenses. Date
-            range does not change cash on hand or stock.
+            Pathao cash, the default item recipe, and logged expenses. Loans
+            do not change period profit. Date range does not change cash on
+            hand or stock.
           </p>
         </div>
         <DatePresets preset={preset} />
