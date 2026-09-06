@@ -20,7 +20,7 @@ async function CurrentBusinessName() {
   await connection();
   const { current } = await getBusinessContext();
   return (
-    <span className="text-sm text-muted-foreground">
+    <span className="text-sm font-medium text-foreground/70">
       {current ? current.name : "EasyBiz"}
     </span>
   );
@@ -33,8 +33,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AppSidebarLoader />
       </Suspense>
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
+        <header className="flex h-14 items-center gap-2 px-4">
+          <SidebarTrigger className="rounded-xl" />
           <Suspense fallback={<Skeleton className="h-4 w-24" />}>
             <CurrentBusinessName />
           </Suspense>

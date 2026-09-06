@@ -37,7 +37,7 @@ async function DashboardBody({
   return (
     <>
       <section className="grid gap-4">
-        <h2 className="text-lg font-semibold tracking-tight">On hand</h2>
+        <h2 className="section-title">On hand</h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
           <StockPositionCard stock={stock} hasBusiness={Boolean(current)} />
@@ -90,7 +90,7 @@ export default function DashboardPage({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="page-title">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
           Cash and stock are running totals. Period figures use the date range
           below.

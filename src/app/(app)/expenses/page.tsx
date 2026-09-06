@@ -64,7 +64,7 @@ export default function ExpensesPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
+        <h1 className="page-title">Expenses</h1>
         <p className="text-sm text-muted-foreground">
           Cash you spent besides stock. Each entry lowers cash on hand (on or
           after the counted-on day) and period profit. Recipe packaging and

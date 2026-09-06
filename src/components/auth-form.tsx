@@ -4,6 +4,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 
 import type { AuthResult } from "@/app/auth-actions";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 
 function isNextRedirect(error: unknown) {
@@ -39,9 +40,12 @@ export function AuthForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">EasyBiz</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+      <div className="flex items-center gap-3">
+        <BrandMark className="size-10 rounded-2xl" />
+        <div>
+          <h1 className="page-title">EasyBiz</h1>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
       </div>
       <form
         className="grid gap-3"

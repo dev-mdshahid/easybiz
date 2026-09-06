@@ -37,7 +37,7 @@ export default function CarriersPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Carriers</h1>
+        <h1 className="page-title">Carriers</h1>
         <p className="text-sm text-muted-foreground">
           Connect courier APIs used to create expected orders. Pathao auto-address
           needs a complete recipient address with locality and district.

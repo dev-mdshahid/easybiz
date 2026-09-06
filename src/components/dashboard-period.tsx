@@ -46,7 +46,7 @@ export function DashboardPeriod({
     <section className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">This period</h2>
+          <h2 className="section-title">This period</h2>
           <p className="text-sm text-muted-foreground">
             Pathao cash, the default item recipe, and logged expenses. Loans
             do not change period profit. Date range does not change cash on

@@ -22,10 +22,10 @@ export function DatePresets({
           key={option.id}
           href={`${basePath}?preset=${option.id}`}
           className={cn(
-            "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+            "rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors",
             preset === option.id
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background hover:bg-muted",
+              ? "border-primary bg-primary text-primary-foreground shadow-[0_6px_14px_-8px_oklch(0.42_0.14_252_/_0.7)]"
+              : "border-border bg-card hover:bg-muted",
           )}
         >
           {option.label}

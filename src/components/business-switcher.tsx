@@ -70,16 +70,13 @@ export function BusinessSwitcher({
 
   return (
     <>
-      <div className="flex flex-col gap-1 px-1">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground">
-          EasyBiz
-        </span>
+      <div className="flex flex-col gap-1">
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger
             render={
               <Button
                 variant="outline"
-                className="h-8 w-full justify-between px-2 text-sm font-semibold"
+                className="h-10 w-full justify-between rounded-xl border-sidebar-border bg-sidebar-accent/50 px-2.5 text-sm font-semibold shadow-none hover:bg-sidebar-accent"
                 disabled={pending}
                 suppressHydrationWarning
               />

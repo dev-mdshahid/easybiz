@@ -87,7 +87,7 @@ export default function LiabilitiesPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Liabilities</h1>
+        <h1 className="page-title">Liabilities</h1>
         <p className="text-sm text-muted-foreground">
           Loans from people for this business. Taking a loan adds cash on
           hand (on or after the counted-on day). Repayment lowers cash, not

@@ -40,7 +40,7 @@ export default function SettingsPage({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="page-title">Settings</h1>
         <p className="text-sm text-muted-foreground">
           How each Pathao order splits into net payout, after costs, product cost,
           and profit. Orders use the default item. Create a business from the

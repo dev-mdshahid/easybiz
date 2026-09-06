@@ -85,7 +85,7 @@ export default function InventoryPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
+        <h1 className="page-title">Inventory</h1>
         <p className="text-sm text-muted-foreground">
           Stock on hand is opening stock plus purchases and adjustments, minus
           product cost from Settings. Purchases raise stock and lower cash on

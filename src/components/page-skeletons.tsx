@@ -91,20 +91,32 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function AppSidebarSkeleton() {
   return (
-    <Sidebar>
-      <div className="flex h-full w-full flex-col gap-2 p-3">
-        <Skeleton className="h-9 w-full" />
-        <div className="mt-4 grid gap-2">
-          {Array.from({ length: 9 }, (_, index) => (
-            <div key={index} className="flex h-8 items-center gap-2 px-2">
-              <Skeleton className="size-4 rounded-md" />
-              <Skeleton className="h-3 w-28" />
+    <Sidebar variant="floating" className="p-3">
+      <div className="flex h-full w-full flex-col gap-3 p-3">
+        <div className="flex items-center gap-2.5">
+          <Skeleton className="size-8 rounded-2xl" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <div className="mt-2 grid gap-4">
+          {Array.from({ length: 4 }, (_, group) => (
+            <div key={group} className="grid gap-2">
+              <Skeleton className="h-3 w-16" />
+              {Array.from({ length: group === 0 ? 1 : 3 }, (_, index) => (
+                <div key={index} className="flex h-10 items-center gap-2.5 px-1.5">
+                  <Skeleton className="size-7 rounded-lg" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              ))}
             </div>
           ))}
         </div>
-        <div className="mt-auto grid gap-2 pt-4">
-          <Skeleton className="h-3 w-40" />
-          <Skeleton className="h-8 w-full" />
+        <div className="mt-auto rounded-2xl bg-sidebar-accent/70 p-2">
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <Skeleton className="size-8 rounded-full" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+          <Skeleton className="mt-1 h-8 w-full rounded-xl" />
         </div>
       </div>
     </Sidebar>

@@ -99,9 +99,7 @@ export default function ExpectedOrdersPage({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Expected orders
-        </h1>
+        <h1 className="page-title">Expected orders</h1>
         <p className="text-sm text-muted-foreground">
           Build Pathao orders from customer chat screenshots. These are not paid
           invoices — they do not change cash, stock, or profit.
