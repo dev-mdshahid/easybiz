@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardList,
@@ -42,6 +42,18 @@ const items = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+function SidebarLinkPending() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={`ml-auto size-1.5 rounded-full bg-foreground transition-opacity ${
+        pending ? "opacity-60" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 export function AppSidebar({
   businesses,
   current,
@@ -77,6 +89,7 @@ export function AppSidebar({
                     >
                       <item.icon />
                       <span>{item.label}</span>
+                      <SidebarLinkPending />
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

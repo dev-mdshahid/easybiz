@@ -3,9 +3,12 @@ import { AuthForm, AuthLinks } from "@/components/auth-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+export const instant = false;
+
 export default function ForgotPasswordPage() {
   return (
     <AuthForm
+      key="forgot-password"
       description="We’ll email a reset link if this account exists."
       action={requestPasswordReset}
       submitLabel="Send reset link"

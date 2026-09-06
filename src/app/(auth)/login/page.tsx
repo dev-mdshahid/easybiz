@@ -1,10 +1,14 @@
+import { Suspense } from "react";
+
 import { signIn } from "@/app/auth-actions";
 import { AuthForm, AuthLinks } from "@/components/auth-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { safeNextPath } from "@/lib/auth-session";
 
-export default async function LoginPage({
+export const instant = false;
+
+async function LoginExtras({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; next?: string }>;
@@ -14,7 +18,25 @@ export default async function LoginPage({
   const authError = params.error === "auth";
 
   return (
+    <>
+      {authError ? (
+        <p className="text-sm text-destructive">
+          Could not complete sign-in. Try again.
+        </p>
+      ) : null}
+      {next !== "/" ? <input type="hidden" name="next" value={next} /> : null}
+    </>
+  );
+}
+
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; next?: string }>;
+}) {
+  return (
     <AuthForm
+      key="login"
       description="Sign in with your email and password."
       action={signIn}
       submitLabel="Sign in"
@@ -28,12 +50,9 @@ export default async function LoginPage({
         />
       }
     >
-      {authError ? (
-        <p className="text-sm text-destructive">
-          Could not complete sign-in. Try again.
-        </p>
-      ) : null}
-      {next !== "/" ? <input type="hidden" name="next" value={next} /> : null}
+      <Suspense>
+        <LoginExtras searchParams={searchParams} />
+      </Suspense>
       <div className="grid gap-1.5">
         <Label htmlFor="email">Email</Label>
         <Input

@@ -1,4 +1,7 @@
+import { Suspense } from "react";
+
 import { OrdersFilters } from "@/components/orders-filters";
+import { OrdersSkeleton } from "@/components/page-skeletons";
 import { OrdersTable, Pagination } from "@/components/orders-table";
 import { listInvoices } from "@/app/actions";
 import { rangeFromPreset, type DatePreset } from "@/lib/time";
@@ -8,7 +11,7 @@ function asPreset(value: string | undefined): DatePreset {
   return "all";
 }
 
-export default async function OrdersPage({
+async function OrdersBody({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -44,13 +47,7 @@ export default async function OrdersPage({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="text-sm text-muted-foreground">
-          Every Pathao consignment saved from your CSVs.
-        </p>
-      </div>
+    <>
       <OrdersFilters q={q} invoiceType={invoiceType} preset={preset} />
       <OrdersTable rows={result.rows} />
       <Pagination
@@ -59,6 +56,31 @@ export default async function OrdersPage({
         total={result.total}
         hrefFor={hrefFor}
       />
+    </>
+  );
+}
+
+export default function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    type?: string;
+    preset?: string;
+    page?: string;
+  }>;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
+        <p className="text-sm text-muted-foreground">
+          Every Pathao consignment saved from your CSVs.
+        </p>
+      </div>
+      <Suspense fallback={<OrdersSkeleton />}>
+        <OrdersBody searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }

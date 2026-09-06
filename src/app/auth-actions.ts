@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { isLegacyOwnerEmail } from "@/lib/auth";
 import { safeNextPath } from "@/lib/auth-session";
@@ -27,19 +28,24 @@ async function claimLegacyBusinesses(userId: string, email: string | undefined) 
   }
 }
 
-export async function requireUserId(): Promise<string> {
+const getSessionUser = cache(async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  if (error || !data.user) return null;
+  return data.user;
+});
+
+export async function requireUserId(): Promise<string> {
+  const user = await getSessionUser();
+  if (!user) {
     redirect("/login");
   }
-  return data.user.id;
+  return user.id;
 }
 
 export async function getSessionEmail(): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user?.email ?? null;
+  const user = await getSessionUser();
+  return user?.email ?? null;
 }
 
 export async function signIn(formData: FormData): Promise<AuthResult> {

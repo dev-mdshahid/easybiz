@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { todayDhaka } from "@/lib/time";
+import { useTodayDhaka } from "@/hooks/use-today-dhaka";
 
 function MovementForm({
   kind,
@@ -25,7 +25,7 @@ function MovementForm({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const today = todayDhaka();
+  const today = useTodayDhaka();
 
   return (
     <form
@@ -67,11 +67,12 @@ function MovementForm({
         <Label htmlFor={`${kind}-date`}>Date</Label>
         <Input
           id={`${kind}-date`}
+          key={today || `${kind}-date`}
           name="occurred_on"
           type="date"
           required
           defaultValue={today}
-          max={today}
+          max={today || undefined}
         />
       </div>
       <div className="grid gap-1.5">

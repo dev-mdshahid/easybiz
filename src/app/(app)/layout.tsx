@@ -1,28 +1,43 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { connection } from "next/server";
 
 import { getSessionEmail, requireUserId } from "@/app/auth-actions";
 import { getBusinessContext } from "@/app/business-actions";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarSkeleton } from "@/components/page-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
-export default async function AppLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+async function AppSidebarLoader() {
+  await connection();
   await requireUserId();
   const email = (await getSessionEmail()) ?? "";
   const { businesses, current } = await getBusinessContext();
+  return <AppSidebar businesses={businesses} current={current} email={email} />;
+}
 
+async function CurrentBusinessName() {
+  await connection();
+  const { current } = await getBusinessContext();
+  return (
+    <span className="text-sm text-muted-foreground">
+      {current ? current.name : "EasyBiz"}
+    </span>
+  );
+}
+
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <AppSidebar businesses={businesses} current={current} email={email} />
+      <Suspense fallback={<AppSidebarSkeleton />}>
+        <AppSidebarLoader />
+      </Suspense>
       <SidebarInset>
         <header className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
-          <span className="text-sm text-muted-foreground">
-            {current ? current.name : "EasyBiz"}
-          </span>
+          <Suspense fallback={<Skeleton className="h-4 w-24" />}>
+            <CurrentBusinessName />
+          </Suspense>
         </header>
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>

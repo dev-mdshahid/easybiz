@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { getStockPosition } from "@/app/actions";
 import { getBusinessContext } from "@/app/business-actions";
 import { listInventoryMovements } from "@/app/inventory-actions";
@@ -6,6 +8,7 @@ import {
   PurchaseForm,
 } from "@/components/inventory-forms";
 import { InventoryMovementsTable } from "@/components/inventory-movements-table";
+import { InventorySkeleton } from "@/components/page-skeletons";
 import { StockPositionCard } from "@/components/stock-position";
 import {
   Card,
@@ -15,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default async function InventoryPage() {
+async function InventoryBody() {
   const [{ current }, stock, movements] = await Promise.all([
     getBusinessContext(),
     getStockPosition(),
@@ -23,17 +26,7 @@ export default async function InventoryPage() {
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Stock on hand is opening stock plus purchases and adjustments, minus
-          product cost from Settings. Purchases raise stock and lower cash on
-          hand. They are not a profit expense — that is product cost when you
-          sell.
-        </p>
-      </div>
-
+    <>
       <StockPositionCard stock={stock} hasBusiness={Boolean(current)} />
 
       {!current ? (
@@ -84,6 +77,25 @@ export default async function InventoryPage() {
           </Card>
         </>
       )}
+    </>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
+        <p className="text-sm text-muted-foreground">
+          Stock on hand is opening stock plus purchases and adjustments, minus
+          product cost from Settings. Purchases raise stock and lower cash on
+          hand. They are not a profit expense — that is product cost when you
+          sell.
+        </p>
+      </div>
+      <Suspense fallback={<InventorySkeleton />}>
+        <InventoryBody />
+      </Suspense>
     </div>
   );
 }

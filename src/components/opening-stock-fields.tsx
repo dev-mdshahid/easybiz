@@ -1,6 +1,8 @@
+"use client";
+
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { todayDhaka } from "@/lib/time";
+import { useTodayDhaka } from "@/hooks/use-today-dhaka";
 
 export function OpeningStockFields({
   amountDefault,
@@ -13,7 +15,7 @@ export function OpeningStockFields({
   required: boolean;
   optionalHint?: boolean;
 }) {
-  const today = todayDhaka();
+  const today = useTodayDhaka();
 
   return (
     <div className="grid gap-4">
@@ -42,11 +44,12 @@ export function OpeningStockFields({
         <Label htmlFor="opening_stock_on">Stock counted on</Label>
         <Input
           id="opening_stock_on"
+          key={today || "opening-stock-on"}
           name="opening_stock_on"
           type="date"
           required={required}
           defaultValue={dateDefault ?? (required ? today : "")}
-          max={today}
+          max={today || undefined}
         />
         <p className="text-xs text-muted-foreground">
           Goods you had at the start of this day, at cost. Purchases,

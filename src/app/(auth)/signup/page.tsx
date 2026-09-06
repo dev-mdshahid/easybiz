@@ -3,9 +3,12 @@ import { AuthForm, AuthLinks } from "@/components/auth-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+export const instant = false;
+
 export default function SignupPage() {
   return (
     <AuthForm
+      key="signup"
       description="Create an account. Your books stay private to this email."
       action={signUp}
       submitLabel="Create account"

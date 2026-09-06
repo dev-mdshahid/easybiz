@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { todayDhaka } from "@/lib/time";
+import { useTodayDhaka } from "@/hooks/use-today-dhaka";
 import type { Expense } from "@/lib/supabase/database.types";
 
 function amountInputValue(value: number | string): string {
@@ -62,7 +62,7 @@ function ExpenseFields({
   noteDefault?: string;
   amountHint?: string;
 }) {
-  const today = todayDhaka();
+  const today = useTodayDhaka();
 
   return (
     <>
@@ -91,11 +91,12 @@ function ExpenseFields({
         <Label htmlFor={`${idPrefix}-date`}>Date</Label>
         <Input
           id={`${idPrefix}-date`}
+          key={dateDefault || today || `${idPrefix}-date`}
           name="occurred_on"
           type="date"
           required
           defaultValue={dateDefault}
-          max={today}
+          max={today || undefined}
         />
       </div>
       <div className="grid gap-1.5">
@@ -138,7 +139,7 @@ export function ExpenseForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<ExpenseCategory>("other");
-  const today = todayDhaka();
+  const today = useTodayDhaka();
 
   return (
     <form

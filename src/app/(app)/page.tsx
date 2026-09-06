@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+
 import { CashPositionCard } from "@/components/cash-position";
 import { DashboardPeriod } from "@/components/dashboard-period";
+import { DashboardSkeleton } from "@/components/page-skeletons";
 import { StockPositionCard } from "@/components/stock-position";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCashPosition, getDashboardStats, getStockPosition, listUploads } from "@/app/actions";
@@ -11,7 +14,7 @@ function asPreset(value: string | undefined): DatePreset {
   return "all";
 }
 
-export default async function DashboardPage({
+async function DashboardBody({
   searchParams,
 }: {
   searchParams: Promise<{ preset?: string }>;
@@ -31,15 +34,7 @@ export default async function DashboardPage({
     stats.logged_expenses === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Cash and stock are running totals. Period figures use the date range
-          below.
-        </p>
-      </div>
-
+    <>
       <section className="grid gap-4">
         <h2 className="text-lg font-semibold tracking-tight">On hand</h2>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -81,6 +76,27 @@ export default async function DashboardPage({
           )}
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+export default function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preset?: string }>;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Cash and stock are running totals. Period figures use the date range
+          below.
+        </p>
+      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardBody searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }

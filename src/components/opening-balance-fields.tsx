@@ -1,6 +1,8 @@
+"use client";
+
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { todayDhaka } from "@/lib/time";
+import { useTodayDhaka } from "@/hooks/use-today-dhaka";
 
 export function OpeningBalanceFields({
   amountDefault,
@@ -13,7 +15,7 @@ export function OpeningBalanceFields({
   required: boolean;
   optionalHint?: boolean;
 }) {
-  const today = todayDhaka();
+  const today = useTodayDhaka();
 
   return (
     <div className="grid gap-4">
@@ -42,11 +44,12 @@ export function OpeningBalanceFields({
         <Label htmlFor="opening_balance_on">Counted on</Label>
         <Input
           id="opening_balance_on"
+          key={today || "opening-balance-on"}
           name="opening_balance_on"
           type="date"
           required={required}
           defaultValue={dateDefault ?? (required ? today : "")}
-          max={today}
+          max={today || undefined}
         />
         <p className="text-xs text-muted-foreground">
           Cash you had at the start of this day. Pathao payouts land two days

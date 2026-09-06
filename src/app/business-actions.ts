@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { cache } from "react";
 
 import { requireUserId } from "@/app/auth-actions";
 import {
@@ -23,7 +24,9 @@ function revalidateBooks() {
   revalidatePath("/carriers");
 }
 
-export async function listBusinesses(): Promise<Business[]> {
+export const listBusinesses = cache(async function listBusinesses(): Promise<
+  Business[]
+> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("businesses")
@@ -31,9 +34,9 @@ export async function listBusinesses(): Promise<Business[]> {
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
-}
+});
 
-export async function getBusinessContext(): Promise<{
+export const getBusinessContext = cache(async function getBusinessContext(): Promise<{
   businesses: Business[];
   current: Business | null;
 }> {
@@ -47,7 +50,7 @@ export async function getBusinessContext(): Promise<{
     businesses.find((business) => business.id === cookieId) ?? businesses[0];
 
   return { businesses, current };
-}
+});
 
 export async function requireBusiness(): Promise<Business> {
   await requireUserId();
