@@ -1,8 +1,18 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
 import type { DashboardStats } from "@/app/actions";
+import { DayConsignmentsDialog } from "@/components/day-consignments-dialog";
 import {
   buildCostMix,
   buildWaterfall,
@@ -10,8 +20,8 @@ import {
   type MixSlice,
   type WaterfallBar,
 } from "@/lib/dashboard-series";
-import { formatBdtCompact } from "@/lib/money";
-import { formatDhakaDayShort } from "@/lib/time";
+import { formatBdt, formatBdtCompact } from "@/lib/money";
+import { formatDhakaDayRange, formatDhakaDayShort } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const MIX_PALETTE = [
@@ -33,6 +43,142 @@ function waterfallFill(bar: WaterfallBar) {
   return "var(--chart-1)";
 }
 
+type PlotPoint = DashboardDay & { x: number; y: number };
+
+type CollectedChart = {
+  width: number;
+  height: number;
+  pad: { l: number; r: number; t: number; b: number };
+  line: string | null;
+  area: string | null;
+  points: PlotPoint[];
+  ticks: PlotPoint[];
+  max: number;
+};
+
+function buildCollectedChart(series: DashboardDay[]): CollectedChart | null {
+  if (series.length === 0) return null;
+  const width = 720;
+  const height = 220;
+  const pad = { l: 2, r: 2, t: 10, b: 26 };
+  const max = Math.max(...series.map((point) => point.collected), 1);
+  const innerW = width - pad.l - pad.r;
+  const innerH = height - pad.t - pad.b;
+  const span = Math.max(series.length - 1, 1);
+  const points = series.map((point, index) => {
+    const x =
+      series.length === 1
+        ? pad.l + innerW / 2
+        : pad.l + (index / span) * innerW;
+    const y = pad.t + innerH - (point.collected / max) * innerH;
+    return { x, y, ...point };
+  });
+  const last = points[points.length - 1];
+  const first = points[0];
+  const line =
+    points.length === 1
+      ? null
+      : points
+          .map(
+            (point, index) =>
+              `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+          )
+          .join(" ");
+  const area =
+    line == null
+      ? null
+      : `${line} L${last.x.toFixed(1)} ${pad.t + innerH} L${first.x.toFixed(1)} ${pad.t + innerH} Z`;
+  const ticks =
+    points.length === 1
+      ? [points[0]]
+      : points.length === 2
+        ? [points[0], points[1]]
+        : [
+            points[0],
+            points[Math.floor(points.length / 2)],
+            points[points.length - 1],
+          ];
+  return { width, height, pad, line, area, points, ticks, max };
+}
+
+function nearestPointIndex(points: PlotPoint[], x: number) {
+  let best = 0;
+  let bestDist = Infinity;
+  for (let index = 0; index < points.length; index += 1) {
+    const dist = Math.abs(points[index].x - x);
+    if (dist < bestDist) {
+      best = index;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function CollectedPointTooltip({
+  plot,
+  point,
+  chart,
+  visible,
+}: {
+  plot: HTMLElement | null;
+  point: PlotPoint;
+  chart: CollectedChart;
+  visible: boolean;
+}) {
+  const [box, setBox] = useState<DOMRect | null>(null);
+
+  const sync = useCallback(() => {
+    if (!plot || !visible) {
+      setBox(null);
+      return;
+    }
+    setBox(plot.getBoundingClientRect());
+  }, [plot, visible]);
+
+  useLayoutEffect(() => {
+    sync();
+  }, [sync, point.x, point.y]);
+
+  useEffect(() => {
+    if (!visible) return;
+    window.addEventListener("scroll", sync, true);
+    window.addEventListener("resize", sync);
+    return () => {
+      window.removeEventListener("scroll", sync, true);
+      window.removeEventListener("resize", sync);
+    };
+  }, [sync, visible]);
+
+  if (!visible || !box) return null;
+
+  const left = box.left + (point.x / chart.width) * box.width;
+  const top = box.top + (point.y / chart.height) * box.height;
+  const nearStart = point.x / chart.width < 0.18;
+  const nearEnd = point.x / chart.width > 0.82;
+  const shift = nearStart ? "0%" : nearEnd ? "-100%" : "-50%";
+  const label = formatDhakaDayRange(point.fromDay, point.toDay);
+
+  return createPortal(
+    <div
+      role="tooltip"
+      className="pointer-events-none fixed z-50 max-w-xs rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md"
+      style={{
+        left,
+        top,
+        transform: `translate(${shift}, calc(-100% - 10px))`,
+      }}
+    >
+      <p className="font-medium">{label}</p>
+      <p className="tabular-nums tracking-tight">{formatBdt(point.collected)}</p>
+      <p className="text-background/75">
+        {point.deliveries} {point.deliveries === 1 ? "delivery" : "deliveries"} ·{" "}
+        {point.returns} {point.returns === 1 ? "return" : "returns"}
+      </p>
+    </div>,
+    document.body,
+  );
+}
+
 export function CollectedArea({
   series,
   tone = "default",
@@ -43,28 +189,25 @@ export function CollectedArea({
   className?: string;
 }) {
   const paintId = useId();
-  const chart = useMemo(() => {
-    if (series.length < 2) return null;
-    const width = 720;
-    const height = 220;
-    const pad = { l: 2, r: 2, t: 10, b: 26 };
-    const max = Math.max(...series.map((point) => point.collected), 1);
-    const innerW = width - pad.l - pad.r;
-    const innerH = height - pad.t - pad.b;
-    const points = series.map((point, index) => {
-      const x = pad.l + (index / (series.length - 1)) * innerW;
-      const y = pad.t + innerH - (point.collected / max) * innerH;
-      return { x, y, ...point };
-    });
-    const line = points
-      .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
-      .join(" ");
-    const last = points[points.length - 1];
-    const first = points[0];
-    const area = `${line} L${last.x.toFixed(1)} ${pad.t + innerH} L${first.x.toFixed(1)} ${pad.t + innerH} Z`;
-    const ticks = [points[0], points[Math.floor(points.length / 2)], points[points.length - 1]];
-    return { width, height, pad, line, area, points, ticks, max };
-  }, [series]);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [openPoint, setOpenPoint] = useState<DashboardDay | null>(null);
+  const [allowTooltip, setAllowTooltip] = useState(true);
+  const chart = useMemo(() => buildCollectedChart(series), [series]);
+
+  const hoverPoint =
+    chart && hoverIndex != null ? chart.points[hoverIndex] : null;
+
+  const indexFromClientX = useCallback(
+    (clientX: number, target: HTMLElement) => {
+      if (!chart) return 0;
+      const rect = target.getBoundingClientRect();
+      const x =
+        ((clientX - rect.left) / Math.max(rect.width, 1)) * chart.width;
+      return nearestPointIndex(chart.points, x);
+    },
+    [chart],
+  );
 
   if (!chart) {
     return (
@@ -74,52 +217,168 @@ export function CollectedArea({
     );
   }
 
-  const stroke = tone === "onPrimary" ? "var(--primary-foreground)" : "var(--primary)";
-  const muted = tone === "onPrimary" ? "color-mix(in oklch, var(--primary-foreground) 70%, transparent)" : "var(--muted-foreground)";
+  const onPrimary = tone === "onPrimary";
+  const stroke = onPrimary ? "var(--primary-foreground)" : "var(--primary)";
+  const muted = onPrimary
+    ? "color-mix(in oklch, var(--primary-foreground) 70%, transparent)"
+    : "var(--muted-foreground)";
+  const markerFill = onPrimary ? "var(--primary)" : "var(--background)";
+  const markerStroke = stroke;
+  const showTooltip = allowTooltip && hoverPoint != null && openPoint == null;
 
   return (
-    <figure className={cn("grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-1.5", className)}>
-      <svg
-        role="img"
-        aria-label="Collected by day"
-        viewBox={`0 0 ${chart.width} ${chart.height}`}
-        preserveAspectRatio="none"
-        className="h-full min-h-36 w-full"
+    <figure
+      className={cn(
+        "grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-1.5",
+        className,
+      )}
+    >
+      <div
+        ref={plotRef}
+        className="relative min-h-36 cursor-crosshair"
+        onPointerDown={(event) => {
+          setAllowTooltip(event.pointerType !== "touch");
+          setHoverIndex(indexFromClientX(event.clientX, event.currentTarget));
+        }}
+        onPointerMove={(event) => {
+          if (event.pointerType === "touch") return;
+          setAllowTooltip(true);
+          setHoverIndex(indexFromClientX(event.clientX, event.currentTarget));
+        }}
+        onPointerLeave={() => {
+          if (openPoint) return;
+          setHoverIndex(null);
+        }}
+        onClick={(event) => {
+          const index = indexFromClientX(event.clientX, event.currentTarget);
+          const point = chart.points[index];
+          if (point) setOpenPoint(point);
+        }}
       >
-        <defs>
-          <linearGradient id={paintId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity={tone === "onPrimary" ? 0.35 : 0.28} />
-            <stop offset="100%" stopColor={stroke} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <path d={chart.area} fill={`url(#${paintId})`} />
-        <path
-          d={chart.line}
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          pathLength={1}
-          className="chart-draw"
-        />
-        {chart.ticks.map((tick) => (
-          <text
-            key={tick.day}
-            x={tick.x}
-            y={chart.height - 6}
-            textAnchor={tick === chart.ticks[0] ? "start" : tick === chart.ticks[2] ? "end" : "middle"}
-            fill={muted}
-            fontSize="11"
-          >
-            {formatDhakaDayShort(tick.day)}
-          </text>
-        ))}
-      </svg>
+        <svg
+          role="img"
+          aria-label="Collected by consignment day"
+          viewBox={`0 0 ${chart.width} ${chart.height}`}
+          preserveAspectRatio="none"
+          className="pointer-events-none h-full min-h-36 w-full"
+        >
+          <defs>
+            <linearGradient id={paintId} x1="0" x2="0" y1="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor={stroke}
+                stopOpacity={onPrimary ? 0.35 : 0.28}
+              />
+              <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {chart.area ? <path d={chart.area} fill={`url(#${paintId})`} /> : null}
+          {chart.line ? (
+            <path
+              d={chart.line}
+              fill="none"
+              stroke={stroke}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              pathLength={1}
+              className="chart-draw"
+            />
+          ) : null}
+          {chart.ticks.map((tick, index) => (
+            <text
+              key={`${tick.day}-${tick.x}-${index}`}
+              x={tick.x}
+              y={chart.height - 6}
+              textAnchor={
+                index === 0 ? "start" : index === chart.ticks.length - 1 ? "end" : "middle"
+              }
+              fill={muted}
+              fontSize="11"
+            >
+              {formatDhakaDayShort(tick.day)}
+            </text>
+          ))}
+        </svg>
+
+        {hoverPoint ? (
+          <>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-0 bottom-7 w-px"
+              style={{
+                left: `${(hoverPoint.x / chart.width) * 100}%`,
+                background: stroke,
+                opacity: 0.28,
+              }}
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute size-2.5 rounded-full"
+              style={{
+                left: `${(hoverPoint.x / chart.width) * 100}%`,
+                top: `${(hoverPoint.y / chart.height) * 100}%`,
+                transform: "translate(-50%, -50%)",
+                background: markerFill,
+                boxShadow: `0 0 0 2px ${markerStroke}`,
+              }}
+            />
+          </>
+        ) : null}
+
+        {chart.points.map((point, index) => {
+          const label = formatDhakaDayRange(point.fromDay, point.toDay);
+          return (
+            <button
+              key={`${point.fromDay}-${point.toDay}-${index}`}
+              type="button"
+              className="absolute size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full focus-visible:ring-2 focus-visible:ring-current/70 focus-visible:outline-none"
+              style={{
+                left: `${(point.x / chart.width) * 100}%`,
+                top: `${(point.y / chart.height) * 100}%`,
+              }}
+              aria-label={`${label}, ${formatBdt(point.collected)} collected. Open consignments.`}
+              onFocus={() => {
+                setAllowTooltip(true);
+                setHoverIndex(index);
+              }}
+              onBlur={() => {
+                if (openPoint) return;
+                setHoverIndex(null);
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenPoint(point);
+              }}
+            />
+          );
+        })}
+
+        {hoverPoint ? (
+          <CollectedPointTooltip
+            plot={plotRef.current}
+            point={hoverPoint}
+            chart={chart}
+            visible={showTooltip}
+          />
+        ) : null}
+      </div>
       <figcaption className="text-xs text-current/70">
         Collected by consignment day · peak {formatBdtCompact(chart.max)}
       </figcaption>
+      <DayConsignmentsDialog
+        key={
+          openPoint
+            ? `${openPoint.fromDay}:${openPoint.toDay}:${openPoint.day}`
+            : "closed"
+        }
+        point={openPoint}
+        open={openPoint != null}
+        onOpenChange={(next) => {
+          if (!next) setOpenPoint(null);
+        }}
+      />
     </figure>
   );
 }

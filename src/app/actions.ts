@@ -411,13 +411,15 @@ export async function listInvoices(params: {
   from?: string | null;
   to?: string | null;
   page?: number;
+  pageSize?: number;
 }): Promise<InvoiceListResult> {
   const page = Math.max(1, params.page ?? 1);
-  const fromIdx = (page - 1) * PAGE_SIZE;
-  const toIdx = fromIdx + PAGE_SIZE - 1;
+  const pageSize = Math.min(100, Math.max(1, params.pageSize ?? PAGE_SIZE));
+  const fromIdx = (page - 1) * pageSize;
+  const toIdx = fromIdx + pageSize - 1;
   const { current: business } = await getBusinessContext();
   if (!business) {
-    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+    return { rows: [], total: 0, page, pageSize };
   }
   const supabase = await createClient();
 
@@ -448,7 +450,7 @@ export async function listInvoices(params: {
     rows: (data ?? []) as PathaoInvoice[],
     total: count ?? 0,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
   };
 }
 

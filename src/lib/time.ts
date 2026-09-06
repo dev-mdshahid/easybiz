@@ -72,6 +72,33 @@ export function dhakaStartIso(y: number, m: number, d: number): string {
   return `${y}-${mm}-${dd}T00:00:00+06:00`;
 }
 
+export function nextDhakaYmd(ymd: string): string {
+  const [year, month, day] = ymd.slice(0, 10).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + 1));
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function dhakaExclusiveRange(
+  fromYmd: string,
+  toYmdInclusive: string,
+): { from: string; to: string } {
+  const [fy, fm, fd] = fromYmd.slice(0, 10).split("-").map(Number);
+  const next = nextDhakaYmd(toYmdInclusive);
+  const [ty, tm, td] = next.split("-").map(Number);
+  return {
+    from: dhakaStartIso(fy, fm, fd),
+    to: dhakaStartIso(ty, tm, td),
+  };
+}
+
+export function formatDhakaDayRange(fromYmd: string, toYmd: string): string {
+  if (fromYmd === toYmd) return formatDhakaDayShort(fromYmd);
+  return `${formatDhakaDayShort(fromYmd)} – ${formatDhakaDayShort(toYmd)}`;
+}
+
 export function startOfMonthDhakaIso(): string {
   const { y, m } = ymdParts(new Date());
   return dhakaStartIso(y, m, 1);

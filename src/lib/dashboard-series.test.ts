@@ -11,8 +11,22 @@ import {
 describe("fillDashboardDays", () => {
   it("inserts empty days between the first and last point", () => {
     const filled = fillDashboardDays([
-      { day: "2026-09-01", collected: 100, deliveries: 1, returns: 0 },
-      { day: "2026-09-03", collected: 50, deliveries: 1, returns: 0 },
+      {
+        day: "2026-09-01",
+        fromDay: "2026-09-01",
+        toDay: "2026-09-01",
+        collected: 100,
+        deliveries: 1,
+        returns: 0,
+      },
+      {
+        day: "2026-09-03",
+        fromDay: "2026-09-03",
+        toDay: "2026-09-03",
+        collected: 50,
+        deliveries: 1,
+        returns: 0,
+      },
     ]);
     expect(filled.map((point) => point.day)).toEqual([
       "2026-09-01",
@@ -21,6 +35,8 @@ describe("fillDashboardDays", () => {
     ]);
     expect(filled[1]).toEqual({
       day: "2026-09-02",
+      fromDay: "2026-09-02",
+      toDay: "2026-09-02",
       collected: 0,
       deliveries: 0,
       returns: 0,
@@ -53,25 +69,53 @@ describe("buildDashboardSeries", () => {
       },
     ]);
     expect(series).toEqual([
-      { day: "2026-09-01", collected: 700, deliveries: 2, returns: 1 },
-      { day: "2026-09-02", collected: 0, deliveries: 0, returns: 0 },
-      { day: "2026-09-03", collected: 100, deliveries: 1, returns: 0 },
+      {
+        day: "2026-09-01",
+        fromDay: "2026-09-01",
+        toDay: "2026-09-01",
+        collected: 700,
+        deliveries: 2,
+        returns: 1,
+      },
+      {
+        day: "2026-09-02",
+        fromDay: "2026-09-02",
+        toDay: "2026-09-02",
+        collected: 0,
+        deliveries: 0,
+        returns: 0,
+      },
+      {
+        day: "2026-09-03",
+        fromDay: "2026-09-03",
+        toDay: "2026-09-03",
+        collected: 100,
+        deliveries: 1,
+        returns: 0,
+      },
     ]);
   });
 });
 
 describe("coarsenDashboardSeries", () => {
   it("groups long ranges so the chart stays readable", () => {
-    const days = Array.from({ length: 6 }, (_, index) => ({
-      day: `2026-09-0${index + 1}`,
-      collected: 10,
-      deliveries: 1,
-      returns: 0,
-    }));
+    const days = Array.from({ length: 6 }, (_, index) => {
+      const day = `2026-09-0${index + 1}`;
+      return {
+        day,
+        fromDay: day,
+        toDay: day,
+        collected: 10,
+        deliveries: 1,
+        returns: 0,
+      };
+    });
     const coarse = coarsenDashboardSeries(days, 3);
     expect(coarse).toHaveLength(3);
     expect(coarse[0]).toEqual({
       day: "2026-09-02",
+      fromDay: "2026-09-01",
+      toDay: "2026-09-02",
       collected: 20,
       deliveries: 2,
       returns: 0,

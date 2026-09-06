@@ -1,4 +1,4 @@
-import { dhakaYmd } from "@/lib/time";
+import { dhakaYmd, nextDhakaYmd } from "@/lib/time";
 import { roundMoney } from "@/lib/cost-recipe";
 
 export type InvoiceSlice = {
@@ -9,6 +9,8 @@ export type InvoiceSlice = {
 
 export type DashboardDay = {
   day: string;
+  fromDay: string;
+  toDay: string;
   collected: number;
   deliveries: number;
   returns: number;
@@ -29,28 +31,28 @@ export type WaterfallBar = {
   role: "inflow" | "cost" | "total";
 };
 
-function nextYmd(ymd: string): string {
-  const [year, month, day] = ymd.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + 1));
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+function emptyDay(day: string): DashboardDay {
+  return { day, fromDay: day, toDay: day, collected: 0, deliveries: 0, returns: 0 };
 }
 
-function emptyDay(day: string): DashboardDay {
-  return { day, collected: 0, deliveries: 0, returns: 0 };
+function withDayRange(point: DashboardDay): DashboardDay {
+  return {
+    ...point,
+    fromDay: point.fromDay || point.day,
+    toDay: point.toDay || point.day,
+  };
 }
 
 export function fillDashboardDays(days: DashboardDay[]): DashboardDay[] {
-  if (days.length <= 1) return days;
+  if (days.length <= 1) return days.map(withDayRange);
   const filled: DashboardDay[] = [];
   const byDay = new Map(days.map((point) => [point.day, point]));
   let cursor = days[0].day;
   const last = days[days.length - 1].day;
   while (cursor <= last) {
-    filled.push(byDay.get(cursor) ?? emptyDay(cursor));
-    cursor = nextYmd(cursor);
+    const point = byDay.get(cursor);
+    filled.push(point ? withDayRange(point) : emptyDay(cursor));
+    cursor = nextDhakaYmd(cursor);
   }
   return filled;
 }
@@ -59,14 +61,18 @@ export function coarsenDashboardSeries(
   days: DashboardDay[],
   maxPoints = 42,
 ): DashboardDay[] {
-  if (days.length <= maxPoints) return days;
+  if (days.length <= maxPoints) return days.map(withDayRange);
   const chunk = Math.ceil(days.length / maxPoints);
   const buckets: DashboardDay[] = [];
   for (let i = 0; i < days.length; i += chunk) {
     const slice = days.slice(i, i + chunk);
     const last = slice[slice.length - 1];
+    const first = withDayRange(slice[0]);
+    const end = withDayRange(last);
     buckets.push({
-      day: last.day,
+      day: end.day,
+      fromDay: first.fromDay,
+      toDay: end.toDay,
       collected: roundMoney(
         slice.reduce((sum, point) => sum + point.collected, 0),
       ),
