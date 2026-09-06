@@ -7,10 +7,12 @@ import { toast } from "sonner";
 
 import { updateOpeningStock } from "@/app/business-actions";
 import type { StockPosition } from "@/app/actions";
-import { LedgerList, type LedgerRow } from "@/components/ledger";
+import { LedgerList } from "@/components/ledger";
+import { MetricBreakdown } from "@/components/metric-breakdown";
 import { OpeningStockFields } from "@/components/opening-stock-fields";
 import { PositionStat } from "@/components/position-stat";
 import { Button } from "@/components/ui/button";
+import { STOCK_FORMULA, stockRows } from "@/lib/position-ledgers";
 import {
   Dialog,
   DialogContent,
@@ -25,51 +27,6 @@ import { formatDhakaDay } from "@/lib/time";
 function amountInputValue(value: number | null): string | undefined {
   if (value == null) return undefined;
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function stockRows(stock: StockPosition, countedOn: string): LedgerRow[] {
-  const rows: LedgerRow[] = [
-    {
-      key: "opening",
-      label: `Opening · ${countedOn}`,
-      amount: stock.opening_stock ?? 0,
-      signed: false,
-    },
-  ];
-  if (stock.purchases_since_opening !== 0) {
-    rows.push({
-      key: "purchases",
-      label: "Purchases",
-      amount: stock.purchases_since_opening,
-      role: "inflow",
-    });
-  }
-  if (stock.adjustments_since_opening !== 0) {
-    rows.push({
-      key: "adjustments",
-      label: "Adjustments",
-      amount: stock.adjustments_since_opening,
-      role: stock.adjustments_since_opening >= 0 ? "inflow" : "cost",
-    });
-  }
-  if (stock.cogs_since_opening !== 0 || !stock.has_product_cost) {
-    rows.push({
-      key: "cogs",
-      label: "COGS",
-      amount: -stock.cogs_since_opening,
-      role: "cost",
-      hint: stock.has_product_cost
-        ? "Product cost from the default item recipe. Returns are not added back."
-        : "Set product cost in Settings so deliveries reduce stock. Returns are not added back.",
-    });
-  }
-  rows.push({
-    key: "total",
-    label: "Stock on hand",
-    amount: stock.stock_on_hand ?? 0,
-    role: "total",
-  });
-  return rows;
 }
 
 export function StockPositionCard({
@@ -128,44 +85,54 @@ export function StockPositionCard({
             : null
         }
         action={
-          hasBusiness ? (
-            stock.is_set ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Edit opening stock"
-                className={
-                  tone === "onWell"
-                    ? "text-current hover:bg-background/10 hover:text-current"
-                    : undefined
-                }
-                onClick={() => {
-                  setError(null);
-                  setOpen(true);
-                }}
-              >
-                <Pencil />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={
-                  tone === "onWell"
-                    ? "border-transparent bg-background text-foreground hover:bg-background/90"
-                    : undefined
-                }
-                onClick={() => {
-                  setError(null);
-                  setOpen(true);
-                }}
-              >
-                Add
-              </Button>
-            )
-          ) : null
+          <span className="flex shrink-0 items-center">
+            {variant === "row" && stock.is_set && countedOn ? (
+              <MetricBreakdown
+                title="Stock on hand"
+                formula={STOCK_FORMULA}
+                rows={stockRows(stock, countedOn)}
+                tone={tone}
+              />
+            ) : null}
+            {hasBusiness ? (
+              stock.is_set ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit opening stock"
+                  className={
+                    tone === "onWell"
+                      ? "text-current hover:bg-background/10 hover:text-current"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setError(null);
+                    setOpen(true);
+                  }}
+                >
+                  <Pencil />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={
+                    tone === "onWell"
+                      ? "border-transparent bg-background text-foreground hover:bg-background/90"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setError(null);
+                    setOpen(true);
+                  }}
+                >
+                  Add
+                </Button>
+              )
+            ) : null}
+          </span>
         }
       >
         {stock.is_set && countedOn && stock.opening_stock != null ? (

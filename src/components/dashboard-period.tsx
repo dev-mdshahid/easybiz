@@ -12,6 +12,7 @@ import {
 } from "@/components/dashboard-charts";
 import { DatePresets } from "@/components/date-presets";
 import { LedgerList } from "@/components/ledger";
+import { MetricBreakdown } from "@/components/metric-breakdown";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatBdt, formatPercent } from "@/lib/money";
+import { PROFIT_FORMULA } from "@/lib/position-ledgers";
 import { cn } from "@/lib/utils";
 
 function marginOf(stats: DashboardStats) {
@@ -49,9 +51,17 @@ export function DashboardHero({
       )}
     >
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
-          Profit
-        </h2>
+        <div className="flex items-center gap-1">
+          <h2 className="font-heading text-lg font-semibold tracking-tight">
+            Profit
+          </h2>
+          <MetricBreakdown
+            title="Profit"
+            formula={PROFIT_FORMULA}
+            rows={stats.statement}
+            tone={onPrimary ? "onPrimary" : "default"}
+          />
+        </div>
         <DatePresets preset={preset} tone={onPrimary ? "onPrimary" : "default"} />
       </div>
 

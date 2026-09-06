@@ -1,8 +1,14 @@
 import type { CashPosition, StockPosition } from "@/app/actions";
 import { CashPositionCard } from "@/components/cash-position";
 import { LiabilityPositionCard } from "@/components/liability-position";
+import { MetricBreakdown } from "@/components/metric-breakdown";
 import { StockPositionCard } from "@/components/stock-position";
 import { formatBdt, formatBdtCompact } from "@/lib/money";
+import {
+  ON_HAND_FORMULA,
+  onHandRows,
+  type LoanLedgerInput,
+} from "@/lib/position-ledgers";
 import { cn } from "@/lib/utils";
 
 function Composition({
@@ -64,10 +70,12 @@ function Composition({
 export function ShopPosition({
   cash,
   stock,
+  loans,
   hasBusiness,
 }: {
   cash: CashPosition;
   stock: StockPosition;
+  loans: LoanLedgerInput[];
   hasBusiness: boolean;
 }) {
   const cashValue =
@@ -83,9 +91,23 @@ export function ShopPosition({
     <section className="flex h-full min-h-0 flex-col gap-5 overflow-hidden rounded-xl bg-foreground p-5 text-background shadow-[0_18px_40px_-28px_oklch(0.27_0.045_252_/_0.5)] sm:p-6">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="grid gap-0.5">
-          <h2 className="font-heading text-lg font-semibold tracking-tight">
-            On hand
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 className="font-heading text-lg font-semibold tracking-tight">
+              On hand
+            </h2>
+            {cashValue != null && stockValue != null ? (
+              <MetricBreakdown
+                title="On hand"
+                formula={ON_HAND_FORMULA}
+                rows={onHandRows(
+                  cashValue,
+                  stockValue,
+                  cash.liabilities_outstanding,
+                )}
+                tone="onWell"
+              />
+            ) : null}
+          </div>
           <p className="text-sm text-current/70">Cash + stock − loans</p>
         </div>
         {working != null ? (
@@ -129,6 +151,7 @@ export function ShopPosition({
         />
         <LiabilityPositionCard
           cash={cash}
+          loans={loans}
           hasBusiness={hasBusiness}
           variant="row"
           tone="onWell"

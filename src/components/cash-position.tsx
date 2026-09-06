@@ -6,10 +6,12 @@ import { toast } from "sonner";
 
 import { updateOpeningBalance } from "@/app/business-actions";
 import type { CashPosition } from "@/app/actions";
-import { LedgerList, type LedgerRow } from "@/components/ledger";
+import { LedgerList } from "@/components/ledger";
+import { MetricBreakdown } from "@/components/metric-breakdown";
 import { OpeningBalanceFields } from "@/components/opening-balance-fields";
 import { PositionStat } from "@/components/position-stat";
 import { Button } from "@/components/ui/button";
+import { CASH_FORMULA, cashRows } from "@/lib/position-ledgers";
 import {
   Dialog,
   DialogContent,
@@ -24,58 +26,6 @@ import { formatDhakaDay } from "@/lib/time";
 function amountInputValue(value: number | null): string | undefined {
   if (value == null) return undefined;
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function cashRows(cash: CashPosition, countedOn: string): LedgerRow[] {
-  const rows: LedgerRow[] = [
-    {
-      key: "opening",
-      label: `Opening · ${countedOn}`,
-      amount: cash.opening_balance ?? 0,
-      signed: false,
-    },
-  ];
-  const moving: LedgerRow[] = [
-    {
-      key: "pathao",
-      label: "Pathao",
-      amount: cash.payouts_since_opening,
-      role: "inflow",
-      hint: "Lands two days after the consignment date.",
-    },
-    {
-      key: "loans",
-      label: "Loans in",
-      amount: cash.loan_proceeds,
-      role: "inflow",
-    },
-    {
-      key: "stock",
-      label: "Stock bought",
-      amount: -cash.stock_purchases,
-      role: "cost",
-    },
-    {
-      key: "expenses",
-      label: "Expenses",
-      amount: -cash.expenses,
-      role: "cost",
-    },
-    {
-      key: "repaid",
-      label: "Repaid",
-      amount: -cash.loan_repayments,
-      role: "cost",
-    },
-  ];
-  rows.push(...moving.filter((row) => row.amount !== 0));
-  rows.push({
-    key: "total",
-    label: "Cash on hand",
-    amount: cash.cash_on_hand ?? 0,
-    role: "total",
-  });
-  return rows;
 }
 
 export function CashPositionCard({
@@ -134,44 +84,54 @@ export function CashPositionCard({
             : null
         }
         action={
-          hasBusiness ? (
-            cash.is_set ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Edit opening cash"
-                className={
-                  tone === "onWell"
-                    ? "text-current hover:bg-background/10 hover:text-current"
-                    : undefined
-                }
-                onClick={() => {
-                  setError(null);
-                  setOpen(true);
-                }}
-              >
-                <Pencil />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={
-                  tone === "onWell"
-                    ? "border-transparent bg-background text-foreground hover:bg-background/90"
-                    : undefined
-                }
-                onClick={() => {
-                  setError(null);
-                  setOpen(true);
-                }}
-              >
-                Add
-              </Button>
-            )
-          ) : null
+          <span className="flex shrink-0 items-center">
+            {variant === "row" && cash.is_set && countedOn ? (
+              <MetricBreakdown
+                title="Cash on hand"
+                formula={CASH_FORMULA}
+                rows={cashRows(cash, countedOn)}
+                tone={tone}
+              />
+            ) : null}
+            {hasBusiness ? (
+              cash.is_set ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit opening cash"
+                  className={
+                    tone === "onWell"
+                      ? "text-current hover:bg-background/10 hover:text-current"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setError(null);
+                    setOpen(true);
+                  }}
+                >
+                  <Pencil />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={
+                    tone === "onWell"
+                      ? "border-transparent bg-background text-foreground hover:bg-background/90"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setError(null);
+                    setOpen(true);
+                  }}
+                >
+                  Add
+                </Button>
+              )
+            ) : null}
+          </span>
         }
       >
         {cash.is_set && countedOn && cash.opening_balance != null ? (

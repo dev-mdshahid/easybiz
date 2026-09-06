@@ -76,7 +76,7 @@ export function PositionStat({
           </div>
           <p
             className={cn(
-              "text-base font-semibold tabular-nums tracking-tight",
+              "shrink-0 text-base font-semibold tabular-nums tracking-tight",
               warning ? "text-destructive" : null,
             )}
           >

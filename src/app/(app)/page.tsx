@@ -11,6 +11,7 @@ import { DashboardSkeleton } from "@/components/page-skeletons";
 import { RecentUploads } from "@/components/recent-uploads";
 import { getCashPosition, getDashboardStats, getStockPosition, listUploads } from "@/app/actions";
 import { getBusinessContext } from "@/app/business-actions";
+import { listLiabilities } from "@/app/liability-actions";
 import { rangeFromPreset, type DatePreset } from "@/lib/time";
 
 function asPreset(value: string | undefined): DatePreset {
@@ -27,12 +28,13 @@ async function DashboardBody({
   await connection();
   const preset = asPreset(params.preset);
   const range = rangeFromPreset(preset);
-  const [{ current }, stats, cash, stock, uploads] = await Promise.all([
+  const [{ current }, stats, cash, stock, uploads, loans] = await Promise.all([
     getBusinessContext(),
     getDashboardStats(range.from, range.to),
     getCashPosition(),
     getStockPosition(),
     listUploads(),
+    listLiabilities(),
   ]);
   const empty =
     stats.delivery_count + stats.return_count === 0 &&
@@ -48,6 +50,7 @@ async function DashboardBody({
           <ShopPosition
             cash={cash}
             stock={stock}
+            loans={loans}
             hasBusiness={Boolean(current)}
           />
         </div>
@@ -57,6 +60,7 @@ async function DashboardBody({
         <ShopPosition
           cash={cash}
           stock={stock}
+          loans={loans}
           hasBusiness={Boolean(current)}
         />
       ) : (

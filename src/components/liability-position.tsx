@@ -2,18 +2,26 @@ import Link from "next/link";
 import { ArrowUpRight, Landmark } from "lucide-react";
 
 import type { CashPosition } from "@/app/actions";
+import { MetricBreakdown } from "@/components/metric-breakdown";
 import { PositionStat } from "@/components/position-stat";
 import { Button } from "@/components/ui/button";
 import { formatBdt } from "@/lib/money";
+import {
+  OWE_FORMULA,
+  loanRows,
+  type LoanLedgerInput,
+} from "@/lib/position-ledgers";
 
 export function LiabilityPositionCard({
   cash,
+  loans,
   hasBusiness,
   variant = "card",
   share,
   tone = "default",
 }: {
   cash: CashPosition;
+  loans: LoanLedgerInput[];
   hasBusiness: boolean;
   variant?: "card" | "row";
   share?: number;
@@ -30,19 +38,27 @@ export function LiabilityPositionCard({
       tone={tone}
       action={
         hasBusiness ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Manage liabilities"
-            className={
-              tone === "onWell"
-                ? "text-current hover:bg-background/10 hover:text-current"
-                : undefined
-            }
-            render={<Link href="/liabilities" />}
-          >
-            <ArrowUpRight />
-          </Button>
+          <span className="flex shrink-0 items-center">
+            <MetricBreakdown
+              title="You owe"
+              formula={OWE_FORMULA}
+              rows={loanRows(loans, cash.liabilities_outstanding)}
+              tone={tone}
+            />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Manage liabilities"
+              className={
+                tone === "onWell"
+                  ? "text-current hover:bg-background/10 hover:text-current"
+                  : undefined
+              }
+              render={<Link href="/liabilities" />}
+            >
+              <ArrowUpRight />
+            </Button>
+          </span>
         ) : null
       }
     >
