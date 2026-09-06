@@ -1,20 +1,15 @@
 "use client";
 
+import { Banknote, Pencil } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updateOpeningBalance } from "@/app/business-actions";
 import type { CashPosition } from "@/app/actions";
+import { LedgerList, type LedgerRow } from "@/components/ledger";
 import { OpeningBalanceFields } from "@/components/opening-balance-fields";
+import { PositionStat } from "@/components/position-stat";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -31,12 +26,68 @@ function amountInputValue(value: number | null): string | undefined {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function cashRows(cash: CashPosition, countedOn: string): LedgerRow[] {
+  const rows: LedgerRow[] = [
+    {
+      key: "opening",
+      label: `Opening · ${countedOn}`,
+      amount: cash.opening_balance ?? 0,
+      signed: false,
+    },
+  ];
+  const moving: LedgerRow[] = [
+    {
+      key: "pathao",
+      label: "Pathao",
+      amount: cash.payouts_since_opening,
+      role: "inflow",
+      hint: "Lands two days after the consignment date.",
+    },
+    {
+      key: "loans",
+      label: "Loans in",
+      amount: cash.loan_proceeds,
+      role: "inflow",
+    },
+    {
+      key: "stock",
+      label: "Stock bought",
+      amount: -cash.stock_purchases,
+      role: "cost",
+    },
+    {
+      key: "expenses",
+      label: "Expenses",
+      amount: -cash.expenses,
+      role: "cost",
+    },
+    {
+      key: "repaid",
+      label: "Repaid",
+      amount: -cash.loan_repayments,
+      role: "cost",
+    },
+  ];
+  rows.push(...moving.filter((row) => row.amount !== 0));
+  rows.push({
+    key: "total",
+    label: "Cash on hand",
+    amount: cash.cash_on_hand ?? 0,
+    role: "total",
+  });
+  return rows;
+}
+
 export function CashPositionCard({
   cash,
   hasBusiness,
+  variant = "card",
+  share,
 }: {
   cash: CashPosition;
   hasBusiness: boolean;
+  variant?: "card" | "row";
+  share?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -60,19 +111,41 @@ export function CashPositionCard({
     cash.is_set && cash.opening_balance_on
       ? formatDhakaDay(cash.opening_balance_on)
       : null;
+  const negative = (cash.cash_on_hand ?? 0) < 0;
+  const value =
+    cash.is_set && cash.cash_on_hand != null
+      ? formatBdt(cash.cash_on_hand)
+      : "—";
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardDescription>Cash on hand</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums tracking-tight">
-            {cash.is_set && cash.cash_on_hand != null
-              ? formatBdt(cash.cash_on_hand)
-              : "—"}
-          </CardTitle>
-          {hasBusiness ? (
-            <CardAction>
+      <PositionStat
+        icon={Banknote}
+        title="Cash on hand"
+        value={value}
+        variant={variant}
+        share={share}
+        warning={
+          cash.is_set && negative
+            ? "Cash is below zero. Check opening cash, stock purchases, or expenses."
+            : null
+        }
+        action={
+          hasBusiness ? (
+            cash.is_set ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Edit opening cash"
+                onClick={() => {
+                  setError(null);
+                  setOpen(true);
+                }}
+              >
+                <Pencil />
+              </Button>
+            ) : (
               <Button
                 type="button"
                 variant="outline"
@@ -82,53 +155,26 @@ export function CashPositionCard({
                   setOpen(true);
                 }}
               >
-                {cash.is_set ? "Edit" : "Add opening cash"}
+                Add
               </Button>
-            </CardAction>
-          ) : null}
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          {cash.is_set && countedOn && cash.opening_balance != null ? (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Opening {formatBdt(cash.opening_balance)} on {countedOn}
-                {" · "}
-                Pathao {formatBdt(cash.payouts_since_opening)}
-                {" · "}
-                Loans in {formatBdt(cash.loan_proceeds)}
-                {" · "}
-                Stock bought {formatBdt(cash.stock_purchases)}
-                {" · "}
-                Expenses {formatBdt(cash.expenses)}
-                {" · "}
-                Repaid {formatBdt(cash.loan_repayments)}
-              </p>
-              {cash.cash_on_hand != null && cash.cash_on_hand < 0 ? (
-                <p className="text-xs text-destructive">
-                  Cash is below zero. Check opening cash, stock purchases, or
-                  expenses.
-                </p>
-              ) : null}
-              <p className="text-xs text-muted-foreground">
-                Opening plus Pathao payouts and loans, minus stock purchases,
-                expenses, and loan repayments. Pathao lands two days after the
-                consignment date. Purchases, expenses, and loans use their
-                date, on or after this counted-on day. Stock adjustments do
-                not change cash. Loans do not change profit.
-              </p>
-            </>
-          ) : hasBusiness ? (
-            <p className="text-sm text-muted-foreground">
-              Add the cash you already had so this number can follow Pathao
-              payouts, loans, stock purchases, and expenses.
-            </p>
+            )
+          ) : null
+        }
+      >
+        {cash.is_set && countedOn && cash.opening_balance != null ? (
+          variant === "row" ? (
+            <p className="text-xs text-muted-foreground">Opened {countedOn}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Create a business from the sidebar, then add opening cash.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            <LedgerList rows={cashRows(cash, countedOn)} />
+          )
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {hasBusiness
+              ? "Add opening cash so this follows Pathao, loans, stock, and expenses."
+              : "Create a business from the sidebar, then add opening cash."}
+          </p>
+        )}
+      </PositionStat>
 
       {open ? (
         <Dialog

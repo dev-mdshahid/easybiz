@@ -1,14 +1,17 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
-import { CashPositionCard } from "@/components/cash-position";
-import { DashboardPeriod } from "@/components/dashboard-period";
-import { LiabilityPositionCard } from "@/components/liability-position";
+import { ShopPosition } from "@/components/shop-position";
+import {
+  DashboardBreakdown,
+  DashboardHero,
+} from "@/components/dashboard-period";
+import { EmptyBooks } from "@/components/kpi-cards";
 import { DashboardSkeleton } from "@/components/page-skeletons";
-import { StockPositionCard } from "@/components/stock-position";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RecentUploads } from "@/components/recent-uploads";
 import { getCashPosition, getDashboardStats, getStockPosition, listUploads } from "@/app/actions";
 import { getBusinessContext } from "@/app/business-actions";
-import { formatDhaka, rangeFromPreset, type DatePreset } from "@/lib/time";
+import { rangeFromPreset, type DatePreset } from "@/lib/time";
 
 function asPreset(value: string | undefined): DatePreset {
   if (value === "month" || value === "30d" || value === "all") return value;
@@ -21,6 +24,7 @@ async function DashboardBody({
   searchParams: Promise<{ preset?: string }>;
 }) {
   const params = await searchParams;
+  await connection();
   const preset = asPreset(params.preset);
   const range = rangeFromPreset(preset);
   const [{ current }, stats, cash, stock, uploads] = await Promise.all([
@@ -36,48 +40,30 @@ async function DashboardBody({
 
   return (
     <>
-      <section className="grid gap-4">
-        <h2 className="section-title">On hand</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <CashPositionCard cash={cash} hasBusiness={Boolean(current)} />
-          <StockPositionCard stock={stock} hasBusiness={Boolean(current)} />
-          <LiabilityPositionCard cash={cash} hasBusiness={Boolean(current)} />
+      {empty ? (
+        <EmptyBooks needsBusiness={!current} />
+      ) : (
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.8fr)] xl:items-start">
+          <DashboardHero stats={stats} preset={preset} />
+          <ShopPosition
+            cash={cash}
+            stock={stock}
+            hasBusiness={Boolean(current)}
+          />
         </div>
-      </section>
+      )}
 
-      <DashboardPeriod
-        stats={stats}
-        empty={empty}
-        needsBusiness={!current}
-        preset={preset}
-      />
+      {empty ? (
+        <ShopPosition
+          cash={cash}
+          stock={stock}
+          hasBusiness={Boolean(current)}
+        />
+      ) : (
+        <DashboardBreakdown stats={stats} />
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent uploads</CardTitle>
-          <CardDescription>Last 20 CSV imports</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {uploads.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No uploads yet.</p>
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {uploads.map((upload) => (
-                <li
-                  key={upload.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-0"
-                >
-                  <span className="font-medium">{upload.filename}</span>
-                  <span className="text-muted-foreground">
-                    {upload.inserted_count} new · {upload.updated_count} updated ·{" "}
-                    {formatDhaka(upload.created_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <RecentUploads uploads={uploads} />
     </>
   );
 }
@@ -88,14 +74,8 @@ export default function DashboardPage({
   searchParams: Promise<{ preset?: string }>;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-      <div>
-        <h1 className="page-title">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Cash and stock are running totals. Period figures use the date range
-          below.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
+      <h1 className="page-title">Dashboard</h1>
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardBody searchParams={searchParams} />
       </Suspense>

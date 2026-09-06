@@ -7,6 +7,20 @@ const dhakaDate = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+export function formatDhakaDayShort(ymd: string): string {
+  const [year, month, day] = ymd.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return ymd;
+  const iso = dhakaStartIso(year, month, day);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: DHAKA_TZ,
+    day: "numeric",
+    month: "short",
+  }).formatToParts(new Date(iso));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("day")} ${get("month")}`;
+}
+
 export function formatDhakaDay(ymd: string): string {
   const [year, month, day] = ymd.slice(0, 10).split("-").map(Number);
   if (!year || !month || !day) return ymd;

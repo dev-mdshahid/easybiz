@@ -1,21 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { Package, Pencil } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updateOpeningStock } from "@/app/business-actions";
 import type { StockPosition } from "@/app/actions";
+import { LedgerList, type LedgerRow } from "@/components/ledger";
 import { OpeningStockFields } from "@/components/opening-stock-fields";
+import { PositionStat } from "@/components/position-stat";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -32,12 +27,61 @@ function amountInputValue(value: number | null): string | undefined {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function stockRows(stock: StockPosition, countedOn: string): LedgerRow[] {
+  const rows: LedgerRow[] = [
+    {
+      key: "opening",
+      label: `Opening · ${countedOn}`,
+      amount: stock.opening_stock ?? 0,
+      signed: false,
+    },
+  ];
+  if (stock.purchases_since_opening !== 0) {
+    rows.push({
+      key: "purchases",
+      label: "Purchases",
+      amount: stock.purchases_since_opening,
+      role: "inflow",
+    });
+  }
+  if (stock.adjustments_since_opening !== 0) {
+    rows.push({
+      key: "adjustments",
+      label: "Adjustments",
+      amount: stock.adjustments_since_opening,
+      role: stock.adjustments_since_opening >= 0 ? "inflow" : "cost",
+    });
+  }
+  if (stock.cogs_since_opening !== 0 || !stock.has_product_cost) {
+    rows.push({
+      key: "cogs",
+      label: "COGS",
+      amount: -stock.cogs_since_opening,
+      role: "cost",
+      hint: stock.has_product_cost
+        ? "Product cost from the default item recipe. Returns are not added back."
+        : "Set product cost in Settings so deliveries reduce stock. Returns are not added back.",
+    });
+  }
+  rows.push({
+    key: "total",
+    label: "Stock on hand",
+    amount: stock.stock_on_hand ?? 0,
+    role: "total",
+  });
+  return rows;
+}
+
 export function StockPositionCard({
   stock,
   hasBusiness,
+  variant = "card",
+  share,
 }: {
   stock: StockPosition;
   hasBusiness: boolean;
+  variant?: "card" | "row";
+  share?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -62,19 +106,40 @@ export function StockPositionCard({
       ? formatDhakaDay(stock.opening_stock_on)
       : null;
   const negative = (stock.stock_on_hand ?? 0) < 0;
+  const value =
+    stock.is_set && stock.stock_on_hand != null
+      ? formatBdt(stock.stock_on_hand)
+      : "—";
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardDescription>Stock on hand</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums tracking-tight">
-            {stock.is_set && stock.stock_on_hand != null
-              ? formatBdt(stock.stock_on_hand)
-              : "—"}
-          </CardTitle>
-          {hasBusiness ? (
-            <CardAction>
+      <PositionStat
+        icon={Package}
+        title="Stock on hand"
+        value={value}
+        variant={variant}
+        share={share}
+        warning={
+          stock.is_set && negative
+            ? "Stock is below zero. Add a purchase or check product cost in Settings."
+            : null
+        }
+        action={
+          hasBusiness ? (
+            stock.is_set ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Edit opening stock"
+                onClick={() => {
+                  setError(null);
+                  setOpen(true);
+                }}
+              >
+                <Pencil />
+              </Button>
+            ) : (
               <Button
                 type="button"
                 variant="outline"
@@ -84,60 +149,54 @@ export function StockPositionCard({
                   setOpen(true);
                 }}
               >
-                {stock.is_set ? "Edit" : "Add opening stock"}
+                Add
               </Button>
-            </CardAction>
-          ) : null}
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          {stock.is_set && countedOn && stock.opening_stock != null ? (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Opening {formatBdt(stock.opening_stock)} on {countedOn}
-                {" · "}
-                Purchases {formatBdt(stock.purchases_since_opening)}
-                {" · "}
-                COGS {formatBdt(stock.cogs_since_opening)}
-                {stock.adjustments_since_opening !== 0
-                  ? ` · Adjustments ${formatBdt(stock.adjustments_since_opening)}`
-                  : ""}
-              </p>
-              {negative ? (
-                <p className="text-xs text-destructive">
-                  Stock is below zero. Add a purchase or check product cost in
-                  Settings.
-                </p>
-              ) : null}
-              <p className="text-xs text-muted-foreground">
-                {stock.has_product_cost
-                  ? "COGS is product cost from the default item recipe on and after that day. Returns are not added back."
-                  : "Set product cost in Settings so Pathao deliveries reduce stock. Returns are not added back."}{" "}
-                <Link
-                  href="/settings"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Settings
-                </Link>
-              </p>
-            </>
-          ) : hasBusiness ? (
-            <p className="text-sm text-muted-foreground">
-              Add the stock you already had, at cost, so this number can follow
-              purchases and Pathao deliveries.{" "}
-              <Link
-                href="/inventory"
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Inventory
-              </Link>
+            )
+          ) : null
+        }
+      >
+        {stock.is_set && countedOn && stock.opening_stock != null ? (
+          variant === "row" ? (
+            <p className="text-xs text-muted-foreground">
+              Opened {countedOn}
+              {!stock.has_product_cost ? " · set product cost in Settings" : null}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Create a business from the sidebar, then add opening stock.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            <>
+              <LedgerList rows={stockRows(stock, countedOn)} />
+              {!stock.has_product_cost ? (
+                <p className="text-xs text-muted-foreground">
+                  Set product cost in{" "}
+                  <Link
+                    href="/settings"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Settings
+                  </Link>
+                  .
+                </p>
+              ) : null}
+            </>
+          )
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {hasBusiness ? (
+              <>
+                Add opening stock at cost so this follows purchases and
+                deliveries.{" "}
+                <Link
+                  href="/inventory"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Inventory
+                </Link>
+              </>
+            ) : (
+              "Create a business from the sidebar, then add opening stock."
+            )}
+          </p>
+        )}
+      </PositionStat>
 
       {open ? (
         <Dialog

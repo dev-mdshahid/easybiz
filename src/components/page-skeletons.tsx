@@ -130,26 +130,55 @@ export function AppSidebarSkeleton() {
 export function DashboardSkeleton() {
   return (
     <div className="grid gap-8">
-      <section className="grid gap-4">
-        <Skeleton className="h-5 w-20" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-        </div>
-      </section>
-      <section className="grid gap-4">
-        <Skeleton className="h-5 w-28" />
-        <div className="grid gap-4 xl:grid-cols-5">
-          <div className="xl:col-span-2">
-            <KpiCardSkeleton />
+      <div className="grid min-h-[22rem] gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.8fr)]">
+        <div className="flex flex-col rounded-xl bg-primary/90 p-6">
+          <Skeleton className="h-5 w-16 bg-primary-foreground/30" />
+          <Skeleton className="mt-4 h-14 w-64 max-w-full bg-primary-foreground/40" />
+          <Skeleton className="mt-3 h-4 w-48 bg-primary-foreground/25" />
+          <div className="mt-5 grid grid-cols-4 gap-3">
+            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
+            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
+            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
+            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
           </div>
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
+          <Skeleton className="mt-6 min-h-40 flex-1 w-full bg-primary-foreground/20" />
         </div>
-      </section>
-      <ListSkeleton />
+        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <div className="flex items-start justify-between gap-3">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+          <Skeleton className="mt-4 h-2 w-full" />
+          <Skeleton className="mt-3 h-2 w-2/3" />
+          <div className="mt-5 grid gap-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="mt-4 h-40 w-full" />
+          <div className="mt-4 grid gap-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="mt-4 h-32 w-full" />
+          </div>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="mt-4 h-16 w-full" />
+          </div>
+        </div>
+      </div>
+      <TableSkeleton rows={4} />
     </div>
   );
 }

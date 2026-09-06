@@ -1,6 +1,13 @@
 import Link from "next/link";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export function EmptyBooks({ needsBusiness = false }: { needsBusiness?: boolean }) {
   return (
@@ -12,18 +19,13 @@ export function EmptyBooks({ needsBusiness = false }: { needsBusiness?: boolean 
         <CardDescription>
           {needsBusiness
             ? "Create a business from the sidebar, then upload a Pathao paid-invoice CSV."
-            : "Upload a Pathao paid-invoice CSV for this business to see revenue, fees, and payout."}
+            : "Upload a Pathao paid-invoice CSV to see payout and profit."}
         </CardDescription>
       </CardHeader>
       {!needsBusiness ? (
-        <CardContent>
-          <Link
-            href="/upload"
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            Go to Upload
-          </Link>
-        </CardContent>
+        <CardFooter>
+          <Button render={<Link href="/upload" />}>Upload CSV</Button>
+        </CardFooter>
       ) : null}
     </Card>
   );

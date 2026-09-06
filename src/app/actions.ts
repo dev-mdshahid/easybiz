@@ -11,6 +11,7 @@ import {
 } from "@/lib/pathao-csv";
 import { toNumber } from "@/lib/money";
 import { applyStaged, profitStatement, roundMoney, summarizeDeliveries, type CostLineInput, type ProfitStatementRow } from "@/lib/cost-recipe";
+import { buildDashboardSeries, type DashboardDay } from "@/lib/dashboard-series";
 import { dhakaYmd } from "@/lib/time";
 import { getBusinessContext } from "@/app/business-actions";
 import { sumExpenses } from "@/app/expense-actions";
@@ -44,6 +45,7 @@ export type DashboardStats = {
   custom_costs: { label: string; amount: number }[];
   statement: ProfitStatementRow[];
   final_payout: number;
+  series: DashboardDay[];
 };
 
 function emptyStats(): DashboardStats {
@@ -70,6 +72,7 @@ function emptyStats(): DashboardStats {
     custom_costs: [],
     statement: [],
     final_payout: 0,
+    series: [],
   };
 }
 
@@ -234,12 +237,14 @@ type DeliverySlice = {
   collected_amount: number;
   final_fee: number;
   created_at: string;
+  invoice_type: string;
 };
 
-async function listDeliveries(
+async function listPeriodInvoices(
   businessId: number,
   from?: string | null,
   to?: string | null,
+  invoiceType?: "delivery",
 ): Promise<DeliverySlice[]> {
   const supabase = await createClient();
   const pageSize = 1000;
@@ -248,11 +253,11 @@ async function listDeliveries(
   for (;;) {
     let query = supabase
       .from("pathao_invoices_current")
-      .select("collected_amount, final_fee, created_at")
+      .select("collected_amount, final_fee, created_at, invoice_type")
       .eq("business_id", businessId)
-      .eq("invoice_type", "delivery")
       .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
+    if (invoiceType) query = query.eq("invoice_type", invoiceType);
     if (from) query = query.gte("created_at", from);
     if (to) query = query.lt("created_at", to);
     const { data, error } = await query;
@@ -264,12 +269,21 @@ async function listDeliveries(
         collected_amount: toNumber(row.collected_amount),
         final_fee: toNumber(row.final_fee),
         created_at: row.created_at,
+        invoice_type: row.invoice_type ?? "delivery",
       });
     }
     if (batch.length < pageSize) break;
     offset += pageSize;
   }
   return rows;
+}
+
+async function listDeliveries(
+  businessId: number,
+  from?: string | null,
+  to?: string | null,
+): Promise<DeliverySlice[]> {
+  return listPeriodInvoices(businessId, from, to, "delivery");
 }
 
 export async function getStockPosition(): Promise<StockPosition> {
@@ -336,7 +350,8 @@ export async function getDashboardStats(from?: string | null, to?: string | null
     await loadDefaultCostLines(),
     business.inventory_cost_ratio,
   );
-  const deliveries = await listDeliveries(business.id, from, to);
+  const invoices = await listPeriodInvoices(business.id, from, to);
+  const deliveries = invoices.filter((row) => row.invoice_type === "delivery");
   const totals = summarizeDeliveries(
     deliveries.map((row) => ({
       collected: row.collected_amount,
@@ -361,6 +376,7 @@ export async function getDashboardStats(from?: string | null, to?: string | null
   stats.logged_expenses = logged;
   stats.operating_profit = roundMoney(totals.operatingProfit - logged);
   stats.statement = profitStatement(totals, logged);
+  stats.series = buildDashboardSeries(invoices);
   return stats;
 }
 

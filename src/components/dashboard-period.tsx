@@ -1,160 +1,164 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
 import type { DashboardStats } from "@/app/actions";
+import {
+  CollectedArea,
+  CostMix,
+  ProfitWaterfall,
+  VolumeSplit,
+} from "@/components/dashboard-charts";
 import { DatePresets } from "@/components/date-presets";
-import { EmptyBooks } from "@/components/kpi-cards";
+import { LedgerList } from "@/components/ledger";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatBdt } from "@/lib/money";
+import { formatBdt, formatPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-function MiniStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="grid gap-1">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
+function marginOf(stats: DashboardStats) {
+  if (stats.revenue === 0) return null;
+  return (stats.operating_profit / stats.revenue) * 100;
 }
 
-export function DashboardPeriod({
+export function DashboardHero({
   stats,
-  empty,
-  needsBusiness,
   preset,
 }: {
   stats: DashboardStats;
-  empty: boolean;
-  needsBusiness: boolean;
   preset: string;
 }) {
+  const profitNegative = stats.operating_profit < 0;
+  const margin = marginOf(stats);
+  const onPrimary = !profitNegative;
+
+  const muted = onPrimary ? "text-primary-foreground/70" : "text-muted-foreground";
+
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="section-title">This period</h2>
-          <p className="text-sm text-muted-foreground">
-            Pathao cash, the default item recipe, and logged expenses. Loans
-            do not change period profit. Date range does not change cash on
-            hand or stock.
-          </p>
-        </div>
-        <DatePresets preset={preset} />
+    <section
+      className={cn(
+        "flex flex-col gap-5 overflow-hidden rounded-xl p-5 shadow-[0_18px_40px_-28px_oklch(0.42_0.14_252_/_0.55)] sm:p-6",
+        onPrimary
+          ? "bg-primary text-primary-foreground"
+          : "bg-card text-card-foreground ring-1 ring-foreground/8",
+      )}
+    >
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <h2 className="font-heading text-lg font-semibold tracking-tight">
+          Profit
+        </h2>
+        <DatePresets preset={preset} tone={onPrimary ? "onPrimary" : "default"} />
       </div>
 
-      {empty ? (
-        <EmptyBooks needsBusiness={needsBusiness} />
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-5">
-          <Card className="xl:col-span-2">
-            <CardHeader>
-              <CardTitle>Pathao</CardTitle>
-              <CardDescription>
-                Collected − delivery charge − return fees = net payout
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <MiniStat
-                  label="Collected"
-                  value={formatBdt(stats.revenue)}
-                  hint="From Pathao deliveries"
-                />
-                <MiniStat
-                  label="Net payout"
-                  value={formatBdt(stats.final_payout)}
-                  hint="Collected − delivery charge − return fees"
-                />
-                <MiniStat
-                  label="Delivery charge"
-                  value={formatBdt(stats.pathao_cost)}
-                  hint="Pathao fee on deliveries"
-                />
-                <MiniStat
-                  label="Return fees"
-                  value={formatBdt(stats.return_cost)}
-                  hint="Pathao fee on returns"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-3 border-t border-border pt-4">
-                <MiniStat label="Deliveries" value={String(stats.delivery_count)} />
-                <MiniStat label="Returns" value={String(stats.return_count)} />
-                <MiniStat
-                  label="Average"
-                  value={formatBdt(stats.average_collected)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="xl:col-span-3">
-            <CardHeader>
-              <CardDescription>Profit</CardDescription>
-              <CardTitle className="text-2xl font-semibold tabular-nums tracking-tight">
-                {formatBdt(stats.operating_profit)}
-              </CardTitle>
-              <CardDescription>
-                After costs is net payout minus packaging and other costs.
-                Product and profit percents apply to after costs. Logged
-                expenses come off recipe profit.{" "}
-                <Link
-                  href="/settings"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Settings
-                </Link>
-                {" · "}
-                <Link
-                  href="/expenses"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Expenses
-                </Link>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="grid text-sm">
-                {stats.statement.map((row) => (
-                  <li
-                    key={row.key}
-                    className={cn(
-                      "flex items-start justify-between gap-4 border-b border-border py-2 last:border-0",
-                      row.role === "subtotal" &&
-                        "rounded-md bg-muted/60 font-medium -mx-2 px-2",
-                      row.role === "total" && "border-t-2 border-border font-semibold",
-                      row.role === "note" && "pl-4 text-muted-foreground",
-                    )}
-                  >
-                    <span>
-                      {row.label}
-                      {row.hint ? (
-                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                          {row.hint}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="tabular-nums">{formatBdt(row.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div className="grid min-w-0 gap-1.5">
+          <p
+            className={cn(
+              "font-heading text-5xl font-bold tracking-tight tabular-nums sm:text-6xl",
+              profitNegative && "text-destructive",
+            )}
+          >
+            {formatBdt(stats.operating_profit)}
+          </p>
+          <p className={cn("text-sm", onPrimary ? "text-primary-foreground/80" : "text-muted-foreground")}>
+            {margin == null
+              ? "No collections in this period."
+              : `${formatPercent(margin)} of ${formatBdt(stats.revenue)} collected`}
+          </p>
         </div>
-      )}
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 lg:max-w-xl lg:flex-1">
+          <div>
+            <dt className={cn("text-sm", muted)}>Net payout</dt>
+            <dd className="font-medium tabular-nums tracking-tight">
+              {formatBdt(stats.final_payout)}
+            </dd>
+          </div>
+          <div>
+            <dt className={cn("text-sm", muted)}>Average ticket</dt>
+            <dd className="font-medium tabular-nums tracking-tight">
+              {formatBdt(stats.average_collected)}
+            </dd>
+          </div>
+          <div>
+            <dt className={cn("text-sm", muted)}>Deliveries</dt>
+            <dd className="font-medium tabular-nums tracking-tight">
+              {stats.delivery_count}
+            </dd>
+          </div>
+          <div>
+            <dt className={cn("text-sm", muted)}>Returns</dt>
+            <dd className="font-medium tabular-nums tracking-tight">
+              {stats.return_count}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <CollectedArea
+        series={stats.series}
+        tone={onPrimary ? "onPrimary" : "default"}
+        className="h-52"
+      />
+    </section>
+  );
+}
+
+export function DashboardBreakdown({ stats }: { stats: DashboardStats }) {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+
+  return (
+    <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+      <Card className="min-w-0">
+        <CardHeader>
+          <CardTitle>How profit was made</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2 overflow-x-auto">
+          <ProfitWaterfall
+            stats={stats}
+            activeKey={activeKey}
+            onActiveKey={setActiveKey}
+          />
+          <LedgerList rows={stats.statement} highlightKey={activeKey} />
+        </CardContent>
+        <CardFooter className="gap-3">
+          <Button variant="link" size="sm" render={<Link href="/settings" />}>
+            Settings
+          </Button>
+          <Button variant="link" size="sm" render={<Link href="/expenses" />}>
+            Expenses
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <div className="grid gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Where collected went</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CostMix
+              stats={stats}
+              activeKey={activeKey}
+              onActiveKey={setActiveKey}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Volume</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VolumeSplit stats={stats} />
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
