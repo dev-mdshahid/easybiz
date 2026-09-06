@@ -31,6 +31,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import type { Business } from "@/lib/supabase/database.types";
 
@@ -70,8 +71,14 @@ function isActivePath(pathname: string, href: string) {
     : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function splitEmail(email: string) {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return { local: email, domain: "" };
+  return { local: email.slice(0, at), domain: email.slice(at + 1) };
+}
+
 function initialsFromEmail(email: string) {
-  const local = email.split("@")[0] ?? "";
+  const { local } = splitEmail(email);
   const parts = local.split(/[._-]+/).filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
@@ -101,6 +108,7 @@ export function AppSidebar({
   email: string;
 }) {
   const pathname = usePathname();
+  const { local, domain } = splitEmail(email);
 
   return (
     <Sidebar variant="floating" className="p-3">
@@ -141,27 +149,33 @@ export function AppSidebar({
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-3">
-        <div className="rounded-2xl bg-sidebar-accent/70 p-2">
-          <div className="flex items-center gap-2.5 px-1 py-1">
-            <Avatar className="size-8 ring-2 ring-background">
-              <AvatarFallback>{initialsFromEmail(email)}</AvatarFallback>
-            </Avatar>
-            <p
-              className="min-w-0 flex-1 truncate text-xs font-medium text-sidebar-foreground"
-              title={email}
-            >
-              {email}
+      <SidebarFooter className="gap-0 px-3 pb-3">
+        <SidebarSeparator className="mx-1 mb-2" />
+        <div className="flex items-center gap-2 px-1 py-1">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-[11px] font-semibold tracking-normal">
+              {initialsFromEmail(email)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1" title={email}>
+            <p className="truncate text-sm font-medium leading-5 text-sidebar-foreground">
+              {local}
             </p>
+            {domain ? (
+              <p className="truncate text-xs leading-4 text-muted-foreground">
+                {domain}
+              </p>
+            ) : null}
           </div>
           <form action={signOut}>
             <Button
               type="submit"
               variant="ghost"
-              className="mt-1 h-8 w-full justify-start rounded-xl px-2 text-sm text-sidebar-foreground hover:bg-background/80"
+              size="icon-sm"
+              aria-label="Log out"
+              className="text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
-              <LogOut className="size-3.5" />
-              Log out
+              <LogOut />
             </Button>
           </form>
         </div>

@@ -111,12 +111,16 @@ export function AppSidebarSkeleton() {
             </div>
           ))}
         </div>
-        <div className="mt-auto rounded-2xl bg-sidebar-accent/70 p-2">
-          <div className="flex items-center gap-2.5 px-1 py-1">
+        <div className="mt-auto">
+          <Skeleton className="mx-1 mb-2 h-px w-auto" />
+          <div className="flex items-center gap-2 px-1 py-1">
             <Skeleton className="size-8 rounded-full" />
-            <Skeleton className="h-3 w-36" />
+            <div className="grid min-w-0 flex-1 gap-1">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+            <Skeleton className="size-7 rounded-lg" />
           </div>
-          <Skeleton className="mt-1 h-8 w-full rounded-xl" />
         </div>
       </div>
     </Sidebar>
