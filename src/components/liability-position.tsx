@@ -11,11 +11,13 @@ export function LiabilityPositionCard({
   hasBusiness,
   variant = "card",
   share,
+  tone = "default",
 }: {
   cash: CashPosition;
   hasBusiness: boolean;
   variant?: "card" | "row";
   share?: number;
+  tone?: "default" | "onWell";
 }) {
   return (
     <PositionStat
@@ -25,12 +27,18 @@ export function LiabilityPositionCard({
       variant={variant}
       share={share}
       shareTone="owe"
+      tone={tone}
       action={
         hasBusiness ? (
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="Manage liabilities"
+            className={
+              tone === "onWell"
+                ? "text-current hover:bg-background/10 hover:text-current"
+                : undefined
+            }
             render={<Link href="/liabilities" />}
           >
             <ArrowUpRight />
@@ -39,9 +47,11 @@ export function LiabilityPositionCard({
       }
     >
       {hasBusiness ? (
-        <p className="text-xs text-muted-foreground">Unpaid loans</p>
+        <p className={tone === "onWell" ? "text-xs text-current/65" : "text-xs text-muted-foreground"}>
+          Unpaid loans
+        </p>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className={tone === "onWell" ? "text-sm text-current/70" : "text-sm text-muted-foreground"}>
           Create a business from the sidebar, then record loans.
         </p>
       )}

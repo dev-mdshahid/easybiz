@@ -134,26 +134,20 @@ export function DashboardSkeleton() {
         <div className="flex flex-col rounded-xl bg-primary/90 p-6">
           <Skeleton className="h-5 w-16 bg-primary-foreground/30" />
           <Skeleton className="mt-4 h-14 w-64 max-w-full bg-primary-foreground/40" />
-          <Skeleton className="mt-3 h-4 w-48 bg-primary-foreground/25" />
-          <div className="mt-5 grid grid-cols-4 gap-3">
-            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
-            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
-            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
-            <Skeleton className="h-10 w-full bg-primary-foreground/20" />
-          </div>
+          <Skeleton className="mt-3 h-4 w-72 max-w-full bg-primary-foreground/25" />
           <Skeleton className="mt-6 min-h-40 flex-1 w-full bg-primary-foreground/20" />
         </div>
-        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="flex flex-col rounded-xl bg-foreground p-6">
           <div className="flex items-start justify-between gap-3">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-7 w-28" />
+            <Skeleton className="h-5 w-24 bg-background/25" />
+            <Skeleton className="h-8 w-32 bg-background/30" />
           </div>
-          <Skeleton className="mt-4 h-2 w-full" />
-          <Skeleton className="mt-3 h-2 w-2/3" />
-          <div className="mt-5 grid gap-3">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
+          <Skeleton className="mt-6 h-3.5 w-full bg-background/20" />
+          <Skeleton className="mt-4 h-3.5 w-2/3 bg-background/20" />
+          <div className="mt-auto grid gap-3 pt-6">
+            <Skeleton className="h-10 w-full bg-background/15" />
+            <Skeleton className="h-10 w-full bg-background/15" />
+            <Skeleton className="h-10 w-full bg-background/15" />
           </div>
         </div>
       </div>

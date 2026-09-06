@@ -83,11 +83,13 @@ export function CashPositionCard({
   hasBusiness,
   variant = "card",
   share,
+  tone = "default",
 }: {
   cash: CashPosition;
   hasBusiness: boolean;
   variant?: "card" | "row";
   share?: number;
+  tone?: "default" | "onWell";
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -125,6 +127,7 @@ export function CashPositionCard({
         value={value}
         variant={variant}
         share={share}
+        tone={tone}
         warning={
           cash.is_set && negative
             ? "Cash is below zero. Check opening cash, stock purchases, or expenses."
@@ -138,6 +141,11 @@ export function CashPositionCard({
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Edit opening cash"
+                className={
+                  tone === "onWell"
+                    ? "text-current hover:bg-background/10 hover:text-current"
+                    : undefined
+                }
                 onClick={() => {
                   setError(null);
                   setOpen(true);
@@ -150,6 +158,11 @@ export function CashPositionCard({
                 type="button"
                 variant="outline"
                 size="sm"
+                className={
+                  tone === "onWell"
+                    ? "border-transparent bg-background text-foreground hover:bg-background/90"
+                    : undefined
+                }
                 onClick={() => {
                   setError(null);
                   setOpen(true);
@@ -163,12 +176,14 @@ export function CashPositionCard({
       >
         {cash.is_set && countedOn && cash.opening_balance != null ? (
           variant === "row" ? (
-            <p className="text-xs text-muted-foreground">Opened {countedOn}</p>
+            <p className={tone === "onWell" ? "text-xs text-current/65" : "text-xs text-muted-foreground"}>
+              Opened {countedOn}
+            </p>
           ) : (
             <LedgerList rows={cashRows(cash, countedOn)} />
           )
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className={tone === "onWell" ? "text-sm text-current/70" : "text-sm text-muted-foreground"}>
             {hasBusiness
               ? "Add opening cash so this follows Pathao, loans, stock, and expenses."
               : "Create a business from the sidebar, then add opening cash."}

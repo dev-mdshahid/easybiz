@@ -39,12 +39,10 @@ export function DashboardHero({
   const margin = marginOf(stats);
   const onPrimary = !profitNegative;
 
-  const muted = onPrimary ? "text-primary-foreground/70" : "text-muted-foreground";
-
   return (
     <section
       className={cn(
-        "flex flex-col gap-5 overflow-hidden rounded-xl p-5 shadow-[0_18px_40px_-28px_oklch(0.42_0.14_252_/_0.55)] sm:p-6",
+        "flex h-full min-h-0 flex-col gap-5 overflow-hidden rounded-xl p-5 shadow-[0_18px_40px_-28px_oklch(0.42_0.14_252_/_0.55)] sm:p-6",
         onPrimary
           ? "bg-primary text-primary-foreground"
           : "bg-card text-card-foreground ring-1 ring-foreground/8",
@@ -57,54 +55,31 @@ export function DashboardHero({
         <DatePresets preset={preset} tone={onPrimary ? "onPrimary" : "default"} />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-        <div className="grid min-w-0 gap-1.5">
-          <p
-            className={cn(
-              "font-heading text-5xl font-bold tracking-tight tabular-nums sm:text-6xl",
-              profitNegative && "text-destructive",
-            )}
-          >
-            {formatBdt(stats.operating_profit)}
-          </p>
-          <p className={cn("text-sm", onPrimary ? "text-primary-foreground/80" : "text-muted-foreground")}>
-            {margin == null
-              ? "No collections in this period."
-              : `${formatPercent(margin)} of ${formatBdt(stats.revenue)} collected`}
-          </p>
-        </div>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 lg:max-w-xl lg:flex-1">
-          <div>
-            <dt className={cn("text-sm", muted)}>Net payout</dt>
-            <dd className="font-medium tabular-nums tracking-tight">
-              {formatBdt(stats.final_payout)}
-            </dd>
-          </div>
-          <div>
-            <dt className={cn("text-sm", muted)}>Average ticket</dt>
-            <dd className="font-medium tabular-nums tracking-tight">
-              {formatBdt(stats.average_collected)}
-            </dd>
-          </div>
-          <div>
-            <dt className={cn("text-sm", muted)}>Deliveries</dt>
-            <dd className="font-medium tabular-nums tracking-tight">
-              {stats.delivery_count}
-            </dd>
-          </div>
-          <div>
-            <dt className={cn("text-sm", muted)}>Returns</dt>
-            <dd className="font-medium tabular-nums tracking-tight">
-              {stats.return_count}
-            </dd>
-          </div>
-        </dl>
+      <div className="grid shrink-0 gap-1.5">
+        <p
+          className={cn(
+            "font-heading text-5xl font-bold tracking-tight tabular-nums sm:text-6xl",
+            profitNegative && "text-destructive",
+          )}
+        >
+          {formatBdt(stats.operating_profit)}
+        </p>
+        <p
+          className={cn(
+            "max-w-2xl text-sm",
+            onPrimary ? "text-primary-foreground/80" : "text-muted-foreground",
+          )}
+        >
+          {margin == null
+            ? "No collections in this period."
+            : `${formatPercent(margin)} of ${formatBdt(stats.revenue)} collected · Net payout ${formatBdt(stats.final_payout)}`}
+        </p>
       </div>
 
       <CollectedArea
         series={stats.series}
         tone={onPrimary ? "onPrimary" : "default"}
-        className="h-52"
+        className="min-h-44 flex-1"
       />
     </section>
   );

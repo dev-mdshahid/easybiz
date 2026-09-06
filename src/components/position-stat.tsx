@@ -20,6 +20,7 @@ export function PositionStat({
   variant = "card",
   share,
   shareTone = "asset",
+  tone = "default",
 }: {
   icon: LucideIcon;
   title: string;
@@ -30,6 +31,7 @@ export function PositionStat({
   variant?: "card" | "row";
   share?: number;
   shareTone?: "asset" | "owe";
+  tone?: "default" | "onWell";
 }) {
   const bar =
     share != null ? (
@@ -48,12 +50,23 @@ export function PositionStat({
     ) : null;
 
   if (variant === "row") {
+    const onWell = tone === "onWell";
     return (
-      <div className="border-b border-border py-2.5 last:border-b-0 last:pb-0 first:pt-0">
+      <div
+        className={cn(
+          "border-b py-2.5 last:border-b-0 last:pb-0 first:pt-0",
+          onWell ? "border-current/15" : "border-border",
+        )}
+      >
         <div className="flex items-center gap-3">
           <span
             aria-hidden
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-md",
+              onWell
+                ? "bg-current/10 text-current/80"
+                : "bg-muted text-muted-foreground",
+            )}
           >
             <Icon className="size-3.5" />
           </span>

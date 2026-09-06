@@ -77,11 +77,13 @@ export function StockPositionCard({
   hasBusiness,
   variant = "card",
   share,
+  tone = "default",
 }: {
   stock: StockPosition;
   hasBusiness: boolean;
   variant?: "card" | "row";
   share?: number;
+  tone?: "default" | "onWell";
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -119,6 +121,7 @@ export function StockPositionCard({
         value={value}
         variant={variant}
         share={share}
+        tone={tone}
         warning={
           stock.is_set && negative
             ? "Stock is below zero. Add a purchase or check product cost in Settings."
@@ -132,6 +135,11 @@ export function StockPositionCard({
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Edit opening stock"
+                className={
+                  tone === "onWell"
+                    ? "text-current hover:bg-background/10 hover:text-current"
+                    : undefined
+                }
                 onClick={() => {
                   setError(null);
                   setOpen(true);
@@ -144,6 +152,11 @@ export function StockPositionCard({
                 type="button"
                 variant="outline"
                 size="sm"
+                className={
+                  tone === "onWell"
+                    ? "border-transparent bg-background text-foreground hover:bg-background/90"
+                    : undefined
+                }
                 onClick={() => {
                   setError(null);
                   setOpen(true);
@@ -157,7 +170,7 @@ export function StockPositionCard({
       >
         {stock.is_set && countedOn && stock.opening_stock != null ? (
           variant === "row" ? (
-            <p className="text-xs text-muted-foreground">
+            <p className={tone === "onWell" ? "text-xs text-current/65" : "text-xs text-muted-foreground"}>
               Opened {countedOn}
               {!stock.has_product_cost ? " · set product cost in Settings" : null}
             </p>
@@ -179,7 +192,7 @@ export function StockPositionCard({
             </>
           )
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className={tone === "onWell" ? "text-sm text-current/70" : "text-sm text-muted-foreground"}>
             {hasBusiness ? (
               <>
                 Add opening stock at cost so this follows purchases and

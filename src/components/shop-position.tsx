@@ -2,7 +2,6 @@ import type { CashPosition, StockPosition } from "@/app/actions";
 import { CashPositionCard } from "@/components/cash-position";
 import { LiabilityPositionCard } from "@/components/liability-position";
 import { StockPositionCard } from "@/components/stock-position";
-import { Card } from "@/components/ui/card";
 import { formatBdt, formatBdtCompact } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -22,13 +21,15 @@ function Composition({
   const oweShare = (Math.abs(owe) / scale) * 100;
 
   return (
-    <div className="grid gap-2">
-      <div className="grid gap-1">
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+    <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
+      <div className="grid gap-1.5">
+        <div className="flex items-center justify-between text-sm text-current/70">
           <span>Cash + stock</span>
-          <span className="tabular-nums">{formatBdtCompact(assets)}</span>
+          <span className="tabular-nums tracking-tight">
+            {formatBdtCompact(assets)}
+          </span>
         </div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+        <div className="flex h-3.5 overflow-hidden rounded-full bg-current/15">
           <div
             className="bg-primary"
             style={{ width: `${cashShare}%` }}
@@ -41,14 +42,16 @@ function Composition({
           />
         </div>
       </div>
-      <div className="grid gap-1">
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="grid gap-1.5">
+        <div className="flex items-center justify-between text-sm text-current/70">
           <span>Unpaid loans</span>
-          <span className="tabular-nums">{formatBdtCompact(owe)}</span>
+          <span className="tabular-nums tracking-tight">
+            {formatBdtCompact(owe)}
+          </span>
         </div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+        <div className="flex h-3.5 overflow-hidden rounded-full bg-current/15">
           <div
-            className="bg-destructive/80"
+            className="bg-[oklch(0.78_0.14_25)]"
             style={{ width: `${oweShare}%` }}
             title={`You owe ${formatBdt(owe)}`}
           />
@@ -77,53 +80,60 @@ export function ShopPosition({
       : null;
 
   return (
-    <Card className="py-0 [--card-spacing:0px]">
-      <div className="flex items-start justify-between gap-3 px-4 pt-4">
+    <section className="flex h-full min-h-0 flex-col gap-5 overflow-hidden rounded-xl bg-foreground p-5 text-background shadow-[0_18px_40px_-28px_oklch(0.27_0.045_252_/_0.5)] sm:p-6">
+      <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="grid gap-0.5">
-          <h2 className="text-base font-semibold">On hand</h2>
-          <p className="text-xs text-muted-foreground">Cash + stock − loans</p>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">
+            On hand
+          </h2>
+          <p className="text-sm text-current/70">Cash + stock − loans</p>
         </div>
         {working != null ? (
           <p
             className={cn(
-              "font-heading text-2xl font-semibold tracking-tight tabular-nums",
-              working < 0 && "text-destructive",
+              "font-heading text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl",
+              working < 0 && "text-[oklch(0.82_0.12_25)]",
             )}
           >
             {formatBdt(working)}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">—</p>
+          <p className="text-sm text-current/70">—</p>
         )}
       </div>
 
       {cashValue != null && stockValue != null ? (
-        <div className="px-4 pt-4">
-          <Composition
-            cash={cashValue}
-            stock={stockValue}
-            owe={cash.liabilities_outstanding}
-          />
-        </div>
+        <Composition
+          cash={cashValue}
+          stock={stockValue}
+          owe={cash.liabilities_outstanding}
+        />
       ) : (
-        <p className="px-4 pt-3 text-sm text-muted-foreground">
+        <p className="flex-1 text-sm text-current/70">
           Add opening cash and stock to see what the shop holds after loans.
         </p>
       )}
 
-      <div className="flex flex-col px-4 pt-3 pb-4">
-        <CashPositionCard cash={cash} hasBusiness={hasBusiness} variant="row" />
+      <div className="flex shrink-0 flex-col">
+        <CashPositionCard
+          cash={cash}
+          hasBusiness={hasBusiness}
+          variant="row"
+          tone="onWell"
+        />
         <StockPositionCard
           stock={stock}
           hasBusiness={hasBusiness}
           variant="row"
+          tone="onWell"
         />
         <LiabilityPositionCard
           cash={cash}
           hasBusiness={hasBusiness}
           variant="row"
+          tone="onWell"
         />
       </div>
-    </Card>
+    </section>
   );
 }

@@ -43,7 +43,7 @@ async function DashboardBody({
       {empty ? (
         <EmptyBooks needsBusiness={!current} />
       ) : (
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.8fr)] xl:items-start">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.8fr)] xl:items-stretch">
           <DashboardHero stats={stats} preset={preset} />
           <ShopPosition
             cash={cash}
