@@ -335,6 +335,27 @@ export async function getStockPosition(): Promise<StockPosition> {
   return position;
 }
 
+export async function hasAnyBooks(): Promise<boolean> {
+  const { current: business } = await getBusinessContext();
+  if (!business) return false;
+  const supabase = await createClient();
+  const [invoices, expenses] = await Promise.all([
+    supabase
+      .from("pathao_invoices_current")
+      .select("id")
+      .eq("business_id", business.id)
+      .limit(1),
+    supabase
+      .from("expenses")
+      .select("id")
+      .eq("business_id", business.id)
+      .limit(1),
+  ]);
+  if (invoices.error) throw new Error(invoices.error.message);
+  if (expenses.error) throw new Error(expenses.error.message);
+  return (invoices.data?.length ?? 0) > 0 || (expenses.data?.length ?? 0) > 0;
+}
+
 export async function getDashboardStats(from?: string | null, to?: string | null) {
   const { current: business } = await getBusinessContext();
   if (!business) return emptyStats();

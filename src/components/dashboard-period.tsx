@@ -10,7 +10,6 @@ import {
   ProfitWaterfall,
   VolumeSplit,
 } from "@/components/dashboard-charts";
-import { DatePresets } from "@/components/date-presets";
 import { LedgerList } from "@/components/ledger";
 import { MetricBreakdown } from "@/components/metric-breakdown";
 import { Button } from "@/components/ui/button";
@@ -32,10 +31,8 @@ function marginOf(stats: DashboardStats) {
 
 export function DashboardHero({
   stats,
-  preset,
 }: {
   stats: DashboardStats;
-  preset: string;
 }) {
   const profitNegative = stats.operating_profit < 0;
   const margin = marginOf(stats);
@@ -50,19 +47,16 @@ export function DashboardHero({
           : "bg-card text-card-foreground ring-1 ring-foreground/8",
       )}
     >
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-1">
-          <h2 className="font-heading text-lg font-semibold tracking-tight">
-            Profit
-          </h2>
-          <MetricBreakdown
-            title="Profit"
-            formula={PROFIT_FORMULA}
-            rows={stats.statement}
-            tone={onPrimary ? "onPrimary" : "default"}
-          />
-        </div>
-        <DatePresets preset={preset} tone={onPrimary ? "onPrimary" : "default"} />
+      <div className="flex shrink-0 items-center gap-1">
+        <h2 className="font-heading text-lg font-semibold tracking-tight">
+          Profit
+        </h2>
+        <MetricBreakdown
+          title="Profit"
+          formula={PROFIT_FORMULA}
+          rows={stats.statement}
+          tone={onPrimary ? "onPrimary" : "default"}
+        />
       </div>
 
       <div className="grid shrink-0 gap-1.5">
